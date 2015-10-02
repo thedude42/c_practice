@@ -29,6 +29,21 @@ void add_value(list li, void* val) {
     current->next = node;
 }
 
+void print_list(list li) {
+    printf("Pointers in list values:\n");
+    if (li->head == NULL) {
+        printf("EMPTY\n");
+        return;
+    }
+    struct lnode* current = li->head;
+    printf("%x\n",(int)current->val);
+    while (current->next != NULL) {
+        current = current->next;
+        printf("%x\n", (int)current->val);
+    }
+    return;
+}
+
 int get_lsize(list li) {
     if (li->head == NULL)
         return 0;
@@ -53,5 +68,6 @@ int main() {
         add_value(li, (void*)valptr++);
     }
     assert(get_lsize(li) == 5);
+    print_list(li);
 }
 
