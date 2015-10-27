@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <stdint.h>
 
 struct lnode {
     struct lnode *next;
@@ -27,6 +28,35 @@ void add_value(list li, void* val) {
     }
     assert(current->next == NULL);
     current->next = node;
+}
+
+void * del_value(list li, void* val) {
+    struct lnode* last = NULL;
+    struct lnode* current = li->head;
+    void* retval = current->val;
+    int notfound = 0;
+    if (current == NULL)
+        return NULL;
+    while (current->val != val) {
+        last = current;
+        current = current->next;
+        if (current == NULL) {
+            notfound = 1;
+            retval = NULL;
+            break;
+        }
+        retval = current->val;
+    }
+    assert(retval == NULL || retval == val );
+    //handle case where head had the thing we wanted, val == li->head->val 
+    if (last == NULL) {
+        li->head = current->next;
+    }
+    else if (! notfound) {
+        last->next = current->next;
+        free(current);
+    }
+    return retval;
 }
 
 void print_list(list li) {
@@ -63,11 +93,24 @@ int main() {
     int* valptr = (int*)values;
     int i = 0;
     printf("adding values\n");
-    for (i; i < 5; ++i) {
+    while (i < 5) {
+        i++;
         printf("adding %d\n", *valptr); 
         add_value(li, (void*)valptr++);
     }
     assert(get_lsize(li) == 5);
+    print_list(li);
+    printf("deleting %p\n", values + 1);
+    del_value(li, values + 1);
+    print_list(li);
+    printf("deleting %p\n", values);
+    del_value(li, values);
+    print_list(li); 
+    printf("deleting %p\n", values + 4);
+    del_value(li, values + 4);
+    print_list(li);
+    printf("deleting %p again\n", values + 4);
+    del_value(li, values + 4);
     print_list(li);
 }
 
