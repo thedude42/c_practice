@@ -13,7 +13,8 @@
 int register_namespaces(xmlXPathContextPtr, const xmlChar*); 
 void print_xpath_nodes(xmlNodeSetPtr, FILE*); 
 
-xmlDocPtr getXmlDocFromFile(char* filename) {
+xmlDocPtr
+getXmlDocFromFile(char* filename) {
     xmlInitParser();
     xmlDocPtr doc = xmlParseFile(filename);
     if (doc == NULL) {
@@ -23,7 +24,8 @@ xmlDocPtr getXmlDocFromFile(char* filename) {
     return doc;
 }
 
-xmlXPathObjectPtr doXpathQuery(xmlDocPtr doc, const xmlChar* xpath, const xmlChar* nsLi) {
+xmlXPathObjectPtr
+doXpathQuery(xmlDocPtr doc, const xmlChar* xpath, const xmlChar* nsLi) {
 
     xmlXPathContextPtr xpathCtx; 
     xmlXPathObjectPtr xpathObj;
@@ -52,7 +54,8 @@ xmlXPathObjectPtr doXpathQuery(xmlDocPtr doc, const xmlChar* xpath, const xmlCha
 }
 
 
-int main(int argc, char** argv) {
+int
+main(int argc, char** argv) {
     if((argc < 3) || (argc > 4)) {
         fprintf(stderr, "Error: wrong number of arguments.\n");
         return(-1);
@@ -87,7 +90,8 @@ int main(int argc, char** argv) {
  *
  * Returns 0 on success and a negative value otherwise.
  */
-int register_namespaces(xmlXPathContextPtr xpathCtx, const xmlChar* nsList) {
+int
+register_namespaces(xmlXPathContextPtr xpathCtx, const xmlChar* nsList) {
     xmlChar* nsListDup;
     xmlChar* prefix;
     xmlChar* href;
@@ -144,7 +148,8 @@ int register_namespaces(xmlXPathContextPtr xpathCtx, const xmlChar* nsList) {
  *
  * Prints the @nodes content to @output.
  */
-void print_xpath_nodes(xmlNodeSetPtr nodes, FILE* output) {
+void
+print_xpath_nodes(xmlNodeSetPtr nodes, FILE* output) {
     xmlNodePtr cur;
     int size;
     int i;
