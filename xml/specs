@@ -1,0 +1,5 @@
+get_primary_key(ltm/pool)
+
+- find the concrete object id class
+- look for a <treeIndex> node with attribute primaryKey=“true”
+- the treeIndex element’s child nodes identify the “primary key” attributes for the class
