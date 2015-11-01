@@ -6,6 +6,7 @@
 #include <vector>
 #include <dirent.h>
 #include <cctype>
+#include <map>
 
 #include <libxml/tree.h>
 #include <libxml/parser.h>
@@ -19,17 +20,17 @@ using namespace std;
 const string SCHEMA_BASE = "schema/johnny/";
 
 void print_xpath_nodes(xmlNodeSetPtr, FILE*); 
-xmlDocPtr getXmlDoc(char* directory); 
+map<string, xmlDocPtr> loadSchemas(char* directory);
 xmlDocPtr getXmlDocFromFile(string filename); 
-xmlXPathObjectPtr doXpathQuery(xmlDocPtr doc, const xmlChar* xpath);
-void get_primary_key(const char* classpath);
-string* usage();
-vector<string> getSchemas(string path);
+xmlXPathObjectPtr doXpathQuery(xmlDocPtr, string);
+void getPrimaryKey(map<string, xmlDocPtr>, string);
+void usage(int);
+vector<string> getSchemaFiles(string path);
 
 int
 main(int argc, char** argv) {
     if((argc < 2)) {
-        cerr << *usage() << endl;
+        usage(2);
         return(-1);
     } 
     int primaryKey = 0;
@@ -51,64 +52,71 @@ main(int argc, char** argv) {
     
     index = optind;
     if (index > argc) {
-        cerr << usage() << endl;
+        usage(2);
         return -1;
     }
     queryStr = argv[index];  
     /* Init libxml */     
     LIBXML_TEST_VERSION
 
-    xmlDocPtr doc = getXmlDoc(directory);
-    if (!doc) {
-        cerr << "main: problem getting xml from " << argv[1] << endl;
-        return(-1);
-    }
+    map<string, xmlDocPtr> docs = loadSchemas(directory);
     
     if (!primaryKey) {
-        xmlXPathObjectPtr query_nodes = doXpathQuery(doc, BAD_CAST queryStr);
+        cout << "performing query on schema 'ltm'" << endl;
+        xmlXPathObjectPtr query_nodes = doXpathQuery(docs["ltm"], string(queryStr));
         
         if (!query_nodes) {
-            cerr << "xpath query :" << argv[1] <<  " on document " <<  argv[2] << " returned nothing\n" << endl;
+            cerr << "xpath query :" << queryStr <<  " on document " << docs["ltm"]->URL  << " returned nothing\n" << endl;
             return(1);
         }
         print_xpath_nodes(query_nodes->nodesetval, stdout);
     }
     else {
-        get_primary_key(queryStr);
+        cout << "doing search for primary keys" << endl;
+        getPrimaryKey(docs, string(queryStr));
     }
     return 0;
 }
 
-string*
-usage() {
-    string* str = new string("\
+void
+usage(int descriptor) {
+    string str = string("\
 usage:\n\
     xpath_query [-p] query string\n\
     -p: return primary key nodes associated with query string\n");
-    return str;
+    if (descriptor == 1)
+        cout << str << endl;
+    else
+        cerr << str << endl;
 }
 
-xmlDocPtr
-getXmlDoc(char* directory) {
+map<string, xmlDocPtr>
+loadSchemas(char* directory) {
     vector<string> files;
-    vector<xmlDocPtr> schemaDocs;
+    map<string, xmlDocPtr> schemaDocs;
     xmlDocPtr next;
+    size_t offset = 0;
+    string key;
     if (directory) {
-        files = getSchemas(string(directory));
+        files = getSchemaFiles(string(directory));
     }
     else {
-        files = getSchemas(SCHEMA_BASE);
+        files = getSchemaFiles(SCHEMA_BASE);
     }
     for(vector<string>::iterator it = files.begin(); it != files.end(); ++it) {
-        if (it->find(".xml") != string::npos)
-            if ((next = getXmlDocFromFile(SCHEMA_BASE+*it)))
-                schemaDocs.push_back(next); 
+        if ((offset = it->find(".xml")) != string::npos)
+            if ((next = getXmlDocFromFile(SCHEMA_BASE+*it))) {
+                key = it->substr(0, offset);
+                cout << "adding key: " << key << endl;
+                schemaDocs[key] = next;
+            }
     }
     cout << "schemaDocs has " << schemaDocs.size() << " docs." << endl;
-    return getXmlDocFromFile(SCHEMA_BASE+string("ltm.xml"));
+    return schemaDocs;
 }
 
-vector<string> getSchemas(string path) {
+vector<string>
+getSchemaFiles(string path) {
     DIR*    dir;
     dirent* pdir;
     vector<string> files;
@@ -122,8 +130,21 @@ vector<string> getSchemas(string path) {
 }
 
 void
-get_primary_key(const char* classpath) {
+getPrimaryKey(map<string, xmlDocPtr> docs, string classpath) {
+    string queryStr;
+    size_t split = classpath.find("/");
+    string key = classpath.substr(0, split);
+    string classId = classpath.substr(split+1, classpath.size() - split);
+    xmlDocPtr doc;
+    xmlXPathObjectPtr queryResults;
     
+    doc = docs[key];
+    queryStr = "/configurationModule/class[attribute::id = '" + \
+            classId + \
+            "']/treeIndex[attribute::primaryKey='true']/*/@id";
+    cout << "doing query " << queryStr << " against schema keyed on " << key << " for class id=\"" << classId << "\"" << endl;
+    queryResults = doXpathQuery(doc, queryStr);
+    print_xpath_nodes(queryResults->nodesetval, stdout);
 }
 
 xmlDocPtr
@@ -138,10 +159,11 @@ getXmlDocFromFile(string filename) {
 }
 
 xmlXPathObjectPtr
-doXpathQuery(xmlDocPtr doc, const xmlChar* xpath) {
+doXpathQuery(xmlDocPtr doc, string xpath) {
 
     xmlXPathContextPtr xpathCtx; 
     xmlXPathObjectPtr xpathObj;
+    const xmlChar* xpathQuery = reinterpret_cast<const xmlChar*>(xpath.c_str());
 
     xpathCtx = xmlXPathNewContext(doc);
     if(xpathCtx == NULL) {
@@ -150,7 +172,7 @@ doXpathQuery(xmlDocPtr doc, const xmlChar* xpath) {
     }
 
     /* Evaluate xpath expression */
-    xpathObj = xmlXPathEvalExpression(xpath, xpathCtx);
+    xpathObj = xmlXPathEvalExpression(xpathQuery, xpathCtx);
     if(xpathObj == NULL) {
         cerr << "Error: failed evaluating xpath expr => \""  << xpath << "\"" << endl;
         xmlXPathFreeContext(xpathCtx); 
