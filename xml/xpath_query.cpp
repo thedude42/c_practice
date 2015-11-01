@@ -19,90 +19,104 @@ using namespace std;
 
 const string SCHEMA_BASE = "schema/johnny/";
 
-void print_xpath_nodes(xmlNodeSetPtr, FILE*); 
-map<string, xmlDocPtr> loadSchemas(char* directory);
+void printXpathNodes(xmlNodeSetPtr, ostream&); 
+map<string, xmlDocPtr> loadSchemas(string);
 xmlDocPtr getXmlDocFromFile(string filename); 
 xmlXPathObjectPtr doXpathQuery(xmlDocPtr, string);
 void getPrimaryKey(map<string, xmlDocPtr>, string);
-void usage(int);
+void usage(ostream&);
 vector<string> getSchemaFiles(string path);
 
 int
 main(int argc, char** argv) {
     if((argc < 2)) {
-        usage(2);
+        usage(cerr);
         return(-1);
     } 
     int primaryKey = 0;
-    char *queryStr = NULL;
-    char *directory = NULL;
+    string queryStr;
+    string directory;
+    string schema;
+    map<string, xmlDocPtr> docs;
     int c, index;
     
     opterr = 0;
-    while ((c = getopt (argc, argv, "pd:")) != -1)
+    while ((c = getopt (argc, argv, "pds::")) != -1) {
         switch (c) {
             case 'p':
                 primaryKey = 1;
                 break;
             case 'd':
-                directory = optarg;
+                directory = string(optarg);
+                break;
+            case 's':
+                schema = string(optarg);
                 break;
             default:;
         }
-    
+    }
+    //collect trailing non-optional query string arg
     index = optind;
     if (index > argc) {
-        usage(2);
+        usage(cerr);
         return -1;
     }
-    queryStr = argv[index];  
+    queryStr = string(argv[index]);  
     /* Init libxml */     
     LIBXML_TEST_VERSION
-
-    map<string, xmlDocPtr> docs = loadSchemas(directory);
-    
+    if (directory.size())
+        docs = loadSchemas(directory);
+    else {
+        cout << "WARNING: using default schemas directory because directory was 0 length: " << SCHEMA_BASE << endl;
+        docs = loadSchemas(SCHEMA_BASE);
+    }
+    xmlXPathObjectPtr query_nodes;
     if (!primaryKey) {
-        cout << "performing query on schema 'ltm'" << endl;
-        xmlXPathObjectPtr query_nodes = doXpathQuery(docs["ltm"], string(queryStr));
-        
-        if (!query_nodes) {
-            cerr << "xpath query :" << queryStr <<  " on document " << docs["ltm"]->URL  << " returned nothing\n" << endl;
-            return(1);
+        if (schema.size() && docs[schema]) {
+            cout << "performing query on schema " << schema << endl;
+            query_nodes = doXpathQuery(docs[schema], queryStr);
+            if (!query_nodes) {
+                cerr << "xpath query :" << queryStr <<  " on document " << docs["ltm"]->URL  << " returned nothing" << endl;
+                return(1);
+            }
         }
-        print_xpath_nodes(query_nodes->nodesetval, stdout);
+        else if (schema.size() && !docs[schema]) {
+            cerr << "schema file " << schema << " not in parsed schema list." << endl;
+            exit(-1);
+        }
+        else {
+            for (map<string, xmlDocPtr>::iterator it = docs.begin(); it != docs.end(); ++it) {
+                query_nodes = doXpathQuery(docs[schema], queryStr);
+                if (query_nodes && query_nodes->nodesetval->nodeNr)
+                    break;
+            }
+        }
+        printXpathNodes(query_nodes->nodesetval, cout);
     }
     else {
         cout << "doing search for primary keys" << endl;
-        getPrimaryKey(docs, string(queryStr));
+        getPrimaryKey(docs, queryStr);
     }
     return 0;
 }
 
 void
-usage(int descriptor) {
+usage(ostream& out) {
     string str = string("\
 usage:\n\
     xpath_query [-p] query string\n\
     -p: return primary key nodes associated with query string\n");
-    if (descriptor == 1)
-        cout << str << endl;
-    else
-        cerr << str << endl;
+     out << str << endl;
 }
 
 map<string, xmlDocPtr>
-loadSchemas(char* directory) {
+loadSchemas(string directory) {
     vector<string> files;
     map<string, xmlDocPtr> schemaDocs;
     xmlDocPtr next;
     size_t offset = 0;
     string key;
-    if (directory) {
-        files = getSchemaFiles(string(directory));
-    }
-    else {
-        files = getSchemaFiles(SCHEMA_BASE);
-    }
+    files = getSchemaFiles(directory);
     for(vector<string>::iterator it = files.begin(); it != files.end(); ++it) {
         if ((offset = it->find(".xml")) != string::npos)
             if ((next = getXmlDocFromFile(SCHEMA_BASE+*it))) {
@@ -125,7 +139,6 @@ getSchemaFiles(string path) {
     while ((pdir = readdir(dir))) {
         files.push_back(pdir->d_name);
     }
-    
     return files;
 }
 
@@ -134,17 +147,24 @@ getPrimaryKey(map<string, xmlDocPtr> docs, string classpath) {
     string queryStr;
     size_t split = classpath.find("/");
     string key = classpath.substr(0, split);
+    cout << "using key \"" << key << "\" for query" << endl;
     string classId = classpath.substr(split+1, classpath.size() - split);
     xmlDocPtr doc;
     xmlXPathObjectPtr queryResults;
-    
     doc = docs[key];
+
+    if (!doc) {
+        cerr << key << " is not present in docs<string, xmlDocPtr>, so this is bad" << endl;
+        exit(-1);
+    }
+    string URL(reinterpret_cast<const char*>(doc->URL));
+    cout << "selected doc: doc->URL=" << URL <<  endl;
     queryStr = "/configurationModule/class[attribute::id = '" + \
             classId + \
             "']/treeIndex[attribute::primaryKey='true']/*/@id";
     cout << "doing query " << queryStr << " against schema keyed on " << key << " for class id=\"" << classId << "\"" << endl;
     queryResults = doXpathQuery(doc, queryStr);
-    print_xpath_nodes(queryResults->nodesetval, stdout);
+    printXpathNodes(queryResults->nodesetval, cout);
 }
 
 xmlDocPtr
@@ -184,76 +204,67 @@ doXpathQuery(xmlDocPtr doc, string xpath) {
 
 
 /**
- * print_xpath_nodes:
+ * printXpathNodes:
  * @nodes:      the nodes set.
- * @output:     the output file handle.
+ * @output:     ostream object ref
  *
  * Prints the @nodes content to @output.
  */
 void
-print_xpath_nodes(xmlNodeSetPtr nodes, FILE* output) {
+printXpathNodes(xmlNodeSetPtr nodes, ostream& output) {
     xmlNodePtr cur;
-    int size;
-    int i;
+    int size, i;
     
     assert(output);
     size = (nodes) ? nodes->nodeNr : 0;
     
-    fprintf(output, "Result (%d nodes):\n", size);
+    output << "Result (" << size << " nodes):" << endl;
     for(i = 0; i < size; ++i) {
         assert(nodes->nodeTab[i]);
-    
-        if(nodes->nodeTab[i]->type == XML_NAMESPACE_DECL) {
-            xmlNsPtr ns;
-        
-            ns = (xmlNsPtr)nodes->nodeTab[i];
-            cur = (xmlNodePtr)ns->next;
-            if(cur->ns) { 
-                fprintf(output, "= namespace \"%s\"=\"%s\" for node %s:%s\n", 
-                ns->prefix, ns->href, cur->ns->href, cur->name);
-            }
-            else {
-                fprintf(output, "= namespace \"%s\"=\"%s\" for node %s\n", 
-                ns->prefix, ns->href, cur->name);
-            }
-        }
-        else if (nodes->nodeTab[i]->type == XML_ELEMENT_NODE) {
-            cur = nodes->nodeTab[i];        
-            if (cur->ns) { 
-                fprintf(output, "= element node \"%s:%s\"\n", 
-                    cur->ns->href, cur->name);
-            }
-            else {
-                fprintf(output, "= element node \"%s\"\n", 
-                    cur->name);
-            }
-        }
-        else if (nodes->nodeTab[i]->type == XML_TEXT_NODE) {
-            cur = nodes->nodeTab[i];        
-            if (cur->ns) { 
-                fprintf(output, "= element node \"%s:%s\"\n", 
-                    cur->ns->href, cur->content);
-            }
-            else {
-                fprintf(output, "= element node \"%s\"\n", 
-                    cur->content);
-            }
-            
-        }
-        else if (nodes->nodeTab[i]->type == XML_ATTRIBUTE_NODE) {
-            cur = nodes->nodeTab[i];        
-            if (cur->ns) { 
-                fprintf(output, "= element node \"%s:%s\"\n", 
-                    cur->ns->href, cur->content);
-            }
-            else {
-                fprintf(output, "= element attr node %s => \"%s\"\n", 
-                    cur->name, cur->children->content);
-            }
-        }
-        else {
-            cur = nodes->nodeTab[i];    
-            fprintf(output, "= node \"%s\": type %d\n", cur->name, cur->type);
+        xmlNsPtr ns;
+        switch(nodes->nodeTab[i]->type) {
+            case XML_NAMESPACE_DECL :
+                ns = (xmlNsPtr)nodes->nodeTab[i];
+                cur = (xmlNodePtr)ns->next;
+                if(cur->ns) { 
+                    output << "= namespace \""<< ns->prefix << "\"=\"" << ns->href  << "\" for node " << \
+                    cur->ns->href <<":"<<  cur->name << endl;
+                }
+                else {
+                    output << "= namespace \"" << ns->prefix << "\"=\"" << ns->href << "\" for node " << \
+                    cur->name <<  endl; 
+                }
+                break;
+            case XML_ELEMENT_NODE :
+                cur = nodes->nodeTab[i];        
+                if (cur->ns) { 
+                    output << "= element node \"" << cur->ns->href << ":" << cur->name << "\"" << endl; 
+                }
+                else {
+                    output << "= element node \"" << cur->name << "\"" << endl; 
+                }
+                break;
+            case(XML_TEXT_NODE): 
+                cur = nodes->nodeTab[i];        
+                if (cur->ns) { 
+                    output << "= text node \"" << cur->ns->href << ":" << cur->content << "\"" << endl; 
+                }
+                else {
+                    output << "= text node \"" << cur->content << "\"" << endl; 
+                }
+                break;
+            case(XML_ATTRIBUTE_NODE):
+                cur = nodes->nodeTab[i];        
+                if (cur->ns) { 
+                    output << "= attr node \"" << cur->ns->href << ":" << cur->content << "\"" << endl; 
+                }
+                else {
+                    output << "= attr node " << cur->name << " => \"" << cur->children->content << "\"," << endl; 
+                }
+                break;
+            default: 
+                cur = nodes->nodeTab[i];    
+                output << "= node \"" << cur->name << "\": type " << cur->type << endl;
         }
     }
 }
