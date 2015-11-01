@@ -41,7 +41,7 @@ main(int argc, char** argv) {
     int c, index;
     
     opterr = 0;
-    while ((c = getopt (argc, argv, "pds::")) != -1) {
+    while ((c = getopt (argc, argv, "pd:s:")) != -1) {
         switch (c) {
             case 'p':
                 primaryKey = 1;
@@ -57,7 +57,7 @@ main(int argc, char** argv) {
     }
     //collect trailing non-optional query string arg
     index = optind;
-    if (index > argc) {
+    if (index >= argc) {
         usage(cerr);
         return -1;
     }
@@ -104,8 +104,10 @@ void
 usage(ostream& out) {
     string str = string("\
 usage:\n\
-    xpath_query [-p] query string\n\
-    -p: return primary key nodes associated with query string\n");
+    xpath_query [-p] [-s <schema>] [-d directory] query string \n\
+    -p: return primary key nodes associated with query string\n\
+    -d: override of default schema directory ("+SCHEMA_BASE+"\n\
+    -s: name of schema whose file is in schema directory as <schema>.xml");
      out << str << endl;
 }
 
@@ -135,7 +137,10 @@ getSchemaFiles(string path) {
     dirent* pdir;
     vector<string> files;
     dir = opendir(path.c_str());
-
+    if (!dir) {
+        cerr << "unable to open directory \"" << path << "\"" << endl;
+        exit(-1);
+    }
     while ((pdir = readdir(dir))) {
         files.push_back(pdir->d_name);
     }
