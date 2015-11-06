@@ -1,4 +1,5 @@
 #ifndef __SchemaSet
+#define __SchemaSet
 
 #include <string>
 #include <vector>
@@ -22,7 +23,10 @@ public:
     static xmlDocPtr fetchXmlDocPtr(std::string filename);
 
 private:
-    std::vector<std::map<std::string, xmlDocPtr> > _schemas;
+    std::map<std::string, xmlDocPtr> _schemas;
+    std::string _schemadir;
+    std::vector<std::string>* listSchemaDir();
+    int parseSchemas(std::vector<std::string>*); 
 };
 
 #endif

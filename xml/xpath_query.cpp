@@ -13,6 +13,8 @@
 #include <libxml/xpath.h>
 #include <libxml/xpathInternals.h>
 
+#include <./SchemaSet.hh>
+
 #if defined(LIBXML_XPATH_ENABLED) && defined(LIBXML_SAX1_ENABLED)
 
 using namespace std;
