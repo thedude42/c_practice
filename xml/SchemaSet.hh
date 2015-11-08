@@ -14,19 +14,22 @@ class SchemaSet {
 public:
     SchemaSet();
     SchemaSet(std::string dirname);
-    std::vector<xmlDocPtr> setSchemasDir(std::string dirname);
+    ~SchemaSet();
+    int setSchemasDir(std::string dirname);
+    static xmlDocPtr fetchXmlDocPtr(std::string filename);
     xmlDocPtr setSchemaDocFile(std::string filename);
-    xmlXPathObjectPtr doXpathQuery(std::string query);
-    std::vector<std::string> getPrimaryKey(std::string objPath);
     void printSchemaFilenames();
     void printSchemaDoc(std::string filename);
-    static xmlDocPtr fetchXmlDocPtr(std::string filename);
+    xmlNodeSetPtr doXpathQuery(std::string schemakey, std::string query);
+    static void printNodeSet(xmlNodeSetPtr nodeset);
+    std::vector<std::string> getPrimaryKey(std::string objPath);
+    std::vector<std::string> getForeignKey(std::string objPath);
 
 private:
     std::map<std::string, xmlDocPtr> _schemas;
-    std::string _schemadir;
-    std::vector<std::string>* listSchemaDir();
-    int parseSchemas(std::vector<std::string>*); 
+    std::string _schemasdir;
+    const std::vector<std::string> listSchemasDir();
+    int parseSchemas(const std::vector<std::string>); 
 };
 
 #endif
