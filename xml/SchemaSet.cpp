@@ -1,6 +1,13 @@
 #include "SchemaSet.hh"
 #include <iostream>
 
+
+/*
+ * Design refactor:
+ * - Offload file/directory validation with boost
+ * - Boost "assign" for container insertion/init
+ */
+
 using namespace std;
 
 SchemaSet::SchemaSet() :  _schemasdir("") {
@@ -13,11 +20,13 @@ SchemaSet::SchemaSet(string dirname) {
         cout << "No schemas parsed" << endl;
 }
 
+// think about foreach
 SchemaSet::~SchemaSet() {
     for (map<string, xmlDocPtr>::iterator it = _schemas.begin(); it == _schemas.end(); it++) 
         xmlFreeDoc(it->second);
 }
 
+//TODO: refactor with boost FS stuff
 int 
 SchemaSet::setSchemasDir(string dir) {
     if (!(dir.at(dir.size() - 1) == '/'))
@@ -26,6 +35,7 @@ SchemaSet::setSchemasDir(string dir) {
     return parseSchemas(listSchemasDir());
 }
 
+// boost again
 const vector<string>
 SchemaSet::listSchemasDir() {
     DIR*    dir;
@@ -48,6 +58,7 @@ SchemaSet::parseSchemas(const vector<string> filelist) {
     xmlDocPtr next;
     size_t offset = 0;
     string key;
+    // foreach refactor
     for(vector<string>::const_iterator it = filelist.begin(); it != filelist.end(); ++it) {
         if ((offset = it->find(".xml")) != string::npos) {
             if ((next = fetchXmlDocPtr(_schemasdir+*it))) {
@@ -79,7 +90,7 @@ SchemaSet::fetchXmlDocPtr(string xmldoc) {
  * Might be better to just return the xpathObj and let the caller deal with it
  */
 xmlNodeSetPtr
-SchemaSet::doXpathQuery(string schema, string query) {
+SchemaSet::doXpathQuery(const string &schema, const string &query) {
     xmlXPathContextPtr xpathCtx; 
     xmlXPathObjectPtr xpathObj;
     const xmlChar* xpathQuery = reinterpret_cast<const xmlChar*>(query.c_str());
@@ -96,7 +107,7 @@ SchemaSet::doXpathQuery(string schema, string query) {
 }
 
 vector<string>
-SchemaSet::getPrimaryKey(string classpath) {
+SchemaSet::getPrimaryKey(const string &classpath) {
     string queryStr;
     int split = classpath.find("/");
     string key = classpath.substr(0, split);
