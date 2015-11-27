@@ -87,16 +87,11 @@ SchemaSet::fetchXmlDocPtr(string xmldoc) {
     return doc;
 }
 
-<<<<<<< HEAD
-xmlXPathObjectPtr
-SchemaSet::doXpathQuery(string schema, string query) {
-=======
 /* Currently we lose track of an xpathObj every time this function is called.
  * Might be better to just return the xpathObj and let the caller deal with it
  */
-xmlNodeSetPtr
+xmlXPathObjectPtr
 SchemaSet::doXpathQuery(const string &schema, const string &query) {
->>>>>>> d2755325d94add14e8e46e1a2d7dd78f2421976b
     xmlXPathContextPtr xpathCtx; 
     xmlXPathObjectPtr xpathObj;
     const xmlChar* xpathQuery = reinterpret_cast<const xmlChar*>(query.c_str());
@@ -109,15 +104,12 @@ SchemaSet::doXpathQuery(const string &schema, const string &query) {
         throw "problem evaluating xpath against " + schema;
     }
     xmlXPathFreeContext(xpathCtx);
+    //return xpathObj->nodesetval;
     return xpathObj;
 }
 
 vector<string>
-<<<<<<< HEAD
-SchemaSet::getPrimaryKey(string objpath) {
-=======
-SchemaSet::getPrimaryKey(const string &classpath) {
->>>>>>> d2755325d94add14e8e46e1a2d7dd78f2421976b
+SchemaSet::getPrimaryKey(const string &objpath) {
     string queryStr;
     int split = objpath.find("/");
     string key = objpath.substr(0, split);
