@@ -1,6 +1,13 @@
 #include "SchemaSet.hh"
 #include <iostream>
 
+
+/*
+ * Design refactor:
+ * - Offload file/directory validation with boost
+ * - Boost "assign" for container insertion/init
+ */
+
 using namespace std;
 
 SchemaSet::SchemaSet() :  _schemasdir("") {
@@ -13,12 +20,14 @@ SchemaSet::SchemaSet(string dirname) {
         cout << "No schemas parsed" << endl;
 }
 
+// think about foreach
 SchemaSet::~SchemaSet() {
     for (map<string, xmlDocPtr>::iterator it = _schemas.begin(); it == _schemas.end(); it++) 
         xmlFreeDoc(it->second);
     xmlCleanupParser();
 }
 
+//TODO: refactor with boost FS stuff
 int 
 SchemaSet::setSchemasDir(string dir) {
     if (!(dir.at(dir.size() - 1) == '/'))
@@ -27,6 +36,7 @@ SchemaSet::setSchemasDir(string dir) {
     return parseSchemas(listSchemasDir());
 }
 
+// boost again
 const vector<string>
 SchemaSet::listSchemasDir() {
     DIR*    dir;
@@ -49,6 +59,7 @@ SchemaSet::parseSchemas(const vector<string> filelist) {
     xmlDocPtr next;
     size_t offset = 0;
     string key;
+    // TODO foreach refactor
     for (vector<string>::const_iterator it = filelist.begin(); it != filelist.end(); ++it) {
         if ((offset = it->find(".xml")) != string::npos) {
             if ((next = fetchXmlDocPtr(_schemasdir+*it))) {
@@ -76,8 +87,16 @@ SchemaSet::fetchXmlDocPtr(string xmldoc) {
     return doc;
 }
 
+<<<<<<< HEAD
 xmlXPathObjectPtr
 SchemaSet::doXpathQuery(string schema, string query) {
+=======
+/* Currently we lose track of an xpathObj every time this function is called.
+ * Might be better to just return the xpathObj and let the caller deal with it
+ */
+xmlNodeSetPtr
+SchemaSet::doXpathQuery(const string &schema, const string &query) {
+>>>>>>> d2755325d94add14e8e46e1a2d7dd78f2421976b
     xmlXPathContextPtr xpathCtx; 
     xmlXPathObjectPtr xpathObj;
     const xmlChar* xpathQuery = reinterpret_cast<const xmlChar*>(query.c_str());
@@ -94,7 +113,11 @@ SchemaSet::doXpathQuery(string schema, string query) {
 }
 
 vector<string>
+<<<<<<< HEAD
 SchemaSet::getPrimaryKey(string objpath) {
+=======
+SchemaSet::getPrimaryKey(const string &classpath) {
+>>>>>>> d2755325d94add14e8e46e1a2d7dd78f2421976b
     string queryStr;
     int split = objpath.find("/");
     string key = objpath.substr(0, split);

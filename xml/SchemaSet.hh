@@ -22,9 +22,9 @@ public:
     xmlDocPtr setSchemaDocFile(std::string filename);
     void printSchemaFilenames();
     void printSchemaDoc(std::string filename);
-    xmlXPathObjectPtr doXpathQuery(std::string schemakey, std::string query);
+    xmlNodeSetPtr doXpathQuery(const std::string &schemakey, const std::string &query);
     static void printNodeSet(xmlNodeSetPtr nodeset);
-    std::vector<std::string> getPrimaryKey(std::string objPath);
+    std::vector<std::string> getPrimaryKey(const std::string &objPath);
     std::vector<std::string> getForeignKey(std::string objPath);
 
 private:
