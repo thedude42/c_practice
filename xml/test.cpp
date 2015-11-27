@@ -12,8 +12,8 @@ int main() {
     cout << "[*] schema names parsed from " << SCHEMADIR << endl;
     foo.printSchemaFilenames();
     cout << "  [OK]" << endl;
-    cout << "[*] performing xpath query: \"/configurationModule/class[attribute::id = 'pool']/treeIndex[attribute::primaryKey='true']/*/@id\"" << endl;
-    xmlNodeSetPtr result = foo.doXpathQuery("ltm", "/configurationModule/class[attribute::id = 'pool']/treeIndex[attribute::primaryKey='true']/*/@id");
+   cout << "[*] performing xpath query: \"/configurationModule/class[attribute::id = 'pool']/treeIndex[attribute::primaryKey='true']/*/@id\"" << endl;
+    xmlNodeSetPtr result = foo.doXpathQuery("ltm", "/configurationModule/class[attribute::id = 'pool']/treeIndex[attribute::primaryKey='true']/*/@id")->nodesetval;
     string s("name");
     if (!s.compare(reinterpret_cast<char*>(result->nodeTab[0]->children->content))) { 
         foo.printNodeSet(result);

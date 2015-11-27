@@ -9,6 +9,8 @@
 #include <libxml/tree.h>
 #include <libxml/xpath.h>
 
+#include <boost/filesystem.hpp>
+
 class SchemaSet {
 
 public:
@@ -20,7 +22,7 @@ public:
     xmlDocPtr setSchemaDocFile(std::string filename);
     void printSchemaFilenames();
     void printSchemaDoc(std::string filename);
-    xmlNodeSetPtr doXpathQuery(std::string schemakey, std::string query);
+    xmlXPathObjectPtr doXpathQuery(std::string schemakey, std::string query);
     static void printNodeSet(xmlNodeSetPtr nodeset);
     std::vector<std::string> getPrimaryKey(std::string objPath);
     std::vector<std::string> getForeignKey(std::string objPath);

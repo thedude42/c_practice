@@ -16,6 +16,7 @@ SchemaSet::SchemaSet(string dirname) {
 SchemaSet::~SchemaSet() {
     for (map<string, xmlDocPtr>::iterator it = _schemas.begin(); it == _schemas.end(); it++) 
         xmlFreeDoc(it->second);
+    xmlCleanupParser();
 }
 
 int 
@@ -48,7 +49,7 @@ SchemaSet::parseSchemas(const vector<string> filelist) {
     xmlDocPtr next;
     size_t offset = 0;
     string key;
-    for(vector<string>::const_iterator it = filelist.begin(); it != filelist.end(); ++it) {
+    for (vector<string>::const_iterator it = filelist.begin(); it != filelist.end(); ++it) {
         if ((offset = it->find(".xml")) != string::npos) {
             if ((next = fetchXmlDocPtr(_schemasdir+*it))) {
                 key = it->substr(0, offset);
@@ -75,10 +76,7 @@ SchemaSet::fetchXmlDocPtr(string xmldoc) {
     return doc;
 }
 
-/* Currently we lose track of an xpathObj every time this function is called.
- * Might be better to just return the xpathObj and let the caller deal with it
- */
-xmlNodeSetPtr
+xmlXPathObjectPtr
 SchemaSet::doXpathQuery(string schema, string query) {
     xmlXPathContextPtr xpathCtx; 
     xmlXPathObjectPtr xpathObj;
@@ -88,24 +86,25 @@ SchemaSet::doXpathQuery(string schema, string query) {
         throw "unable to create new XPath context";
     xpathObj = xmlXPathEvalExpression(xpathQuery, xpathCtx);
     if (!xpathObj) {
-        free(xpathObj);
+        xmlXPathFreeObject(xpathObj);
         throw "problem evaluating xpath against " + schema;
     }
     xmlXPathFreeContext(xpathCtx);
-    return xpathObj->nodesetval;
+    return xpathObj;
 }
 
 vector<string>
-SchemaSet::getPrimaryKey(string classpath) {
+SchemaSet::getPrimaryKey(string objpath) {
     string queryStr;
-    int split = classpath.find("/");
-    string key = classpath.substr(0, split);
+    int split = objpath.find("/");
+    string key = objpath.substr(0, split);
     cout << "using key \"" << key << "\" for query" << endl;
-    string classId = classpath.substr(split+1, classpath.size() - split);
+    string classId = objpath.substr(split+1, objpath.size() - split);
     xmlDocPtr doc = _schemas[key];
-    xmlNodeSetPtr queryResults;
+    xmlXPathObjectPtr queryResults;
+    xmlNodeSetPtr resultSet;
     if (!doc) 
-        throw "bad classpath: no matching schema";
+        throw "bad objpath: no matching schema";
     vector<string> retval;
     string URL(reinterpret_cast<const char*>(doc->URL));
     cout << "selected doc: doc->URL=" << URL <<  endl;
@@ -114,10 +113,13 @@ SchemaSet::getPrimaryKey(string classpath) {
             "']/treeIndex[attribute::primaryKey='true']/*/@id";
     cout << "doing query " << queryStr << " against schema keyed on " << key << " for class id=\"" << classId << "\"" << endl;
     queryResults = doXpathQuery(key, queryStr);
+    resultSet = queryResults->nodesetval;
     if (!queryResults)
         throw "xpathQuery failed in getPrimaryKey";
-    for(int i = 0; i < queryResults->nodeNr; ++i)
-        retval.push_back(reinterpret_cast<char *>(queryResults->nodeTab[i]->children->content));
+    for (int i = 0; i < queryResults->nodesetval->nodeNr; ++i) {
+        retval.push_back(string(reinterpret_cast<char *>(resultSet->nodeTab[i]->children->content)));
+    }
+    xmlXPathFreeObject(queryResults);
     return retval;
 }
 
