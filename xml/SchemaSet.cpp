@@ -10,13 +10,13 @@
 
 using namespace std;
 
-SchemaSet::SchemaSet() :  _schemasdir("") {
+SchemaSet::SchemaSet() :  _schemadirs() {
     xmlInitParser();
 }
 
 SchemaSet::SchemaSet(string dirname) {
     xmlInitParser();
-    if(!setSchemasDir(dirname))
+    if(!addSchemasDir(dirname))
         cout << "No schemas parsed" << endl;
 }
 
@@ -28,22 +28,23 @@ SchemaSet::~SchemaSet() {
 
 //TODO: refactor with boost FS stuff
 int 
-SchemaSet::setSchemasDir(string dir) {
+SchemaSet::addSchemasDir(string dir) {
     if (!(dir.at(dir.size() - 1) == '/'))
         dir.push_back('/');
-    _schemasdir = dir;
-    return parseSchemas(listSchemasDir());
+    // we assume listSchemas will bail when this fails
+    _schemadirs[dir] = listSchemasDir(dir);
+    return parseSchemas(dir);
 }
 
 // boost again
 const vector<string>
-SchemaSet::listSchemasDir() {
+SchemaSet::listSchemasDir(string dirstr) {
     DIR*    dir;
     dirent* pdir;
     vector<string> files;
-    dir = opendir(_schemasdir.c_str()); //using private
+    dir = opendir(dirstr.c_str()); //using private
     if (!dir) {
-        cerr << "unable to open directory \"" << _schemasdir << "\"" << endl; //private
+        cerr << "unable to open directory \"" << dirstr << "\"" << endl; //private
         exit(-1);
     }
     while ((pdir = readdir(dir))) {
@@ -54,14 +55,14 @@ SchemaSet::listSchemasDir() {
 }
 
 int 
-SchemaSet::parseSchemas(const vector<string> filelist) {
+SchemaSet::parseSchemas(const string dir) {
     xmlDocPtr next;
     size_t offset = 0;
     string key;
     // foreach refactor
-    for(vector<string>::const_iterator it = filelist.begin(); it != filelist.end(); ++it) {
+    for(vector<string>::const_iterator it = _schemadirs[dir].begin(); it != _schemadirs[dir].end(); ++it) {
         if ((offset = it->find(".xml")) != string::npos) {
-            if ((next = fetchXmlDocPtr(_schemasdir+*it))) {
+            if ((next = fetchXmlDocPtr(dir+*it))) {
                 key = it->substr(0, offset);
                 //cout << "adding key: " << key << endl;
                 _schemas[key] = next;

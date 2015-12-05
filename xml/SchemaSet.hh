@@ -15,7 +15,7 @@ public:
     SchemaSet();
     SchemaSet(std::string dirname);
     ~SchemaSet();
-    int setSchemasDir(std::string dirname);
+    int addSchemasDir(std::string dirname);
     static xmlDocPtr fetchXmlDocPtr(std::string filename);
     xmlDocPtr setSchemaDocFile(std::string filename);
     void printSchemaFilenames();
@@ -27,9 +27,9 @@ public:
 
 private:
     std::map<std::string, xmlDocPtr> _schemas;
-    std::string _schemasdir;
-    const std::vector<std::string> listSchemasDir();
-    int parseSchemas(const std::vector<std::string>); 
+    std::map<std::string, std::vector<std::string> > _schemadirs;
+    const std::vector<std::string> listSchemasDir(std::string);
+    int parseSchemas(const std::string); 
 };
 
 #endif
