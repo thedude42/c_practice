@@ -9,6 +9,8 @@
 #include <libxml/tree.h>
 #include <libxml/xpath.h>
 
+#include <boost/filesystem.hpp>
+
 class SchemaSet {
 
 public:
