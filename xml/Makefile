@@ -4,10 +4,10 @@ LDLIBS=-lxml2
 LDLIBS+= -lboost_filesystem
 LDLIBS+= -lboost_system
 LDFLAGS= -L/usr/local/opt/libxml2/lib
-LDFLAGS+= -L/Users/johnny/local_build/boost_1_59_0/stage/lib
+#LDFLAGS+= -L/Users/johnny/local_build/boost_1_59_0/stage/lib
 
 INCLUDE= -I/usr/local/opt/libxml2/include/libxml2
-INCLUDE+= -I/Users/johnny/local_build/boost_1_59_0
+#INCLUDE+= -I/Users/johnny/local_build/boost_1_59_0
 #I_XML2=-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk/usr/include/libxml2
 
 all: xpath_query
