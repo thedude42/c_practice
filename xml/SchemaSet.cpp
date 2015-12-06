@@ -78,6 +78,11 @@ SchemaSet::addModule(const path &filepath) {
     }
 }
 
+string
+SchemaSet::getSchemaFromModule(const string modulename) {
+    return _modules[modulename];
+}
+
 xmlDocPtr
 SchemaSet::fetchXmlDocPtr(string xmldoc) {
     //xmlInitParser();
@@ -101,6 +106,7 @@ SchemaSet::doXpathQuery(const string &schema, const string &query) {
     xpathCtx = xmlXPathNewContext(_schemas[schema]);
     if(!xpathCtx)
         throw runtime_error("unable to create new XPath context");
+    cout << "performing xpath query: " << query << endl;
     xpathObj = xmlXPathEvalExpression(xpathQuery, xpathCtx);
     if (!xpathObj) {
         free(xpathObj);

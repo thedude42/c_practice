@@ -26,10 +26,10 @@ usage:\n\
 }
 
 void
-doXpathQuery(SchemaSet &ss, const string &q, const string schema) {
-    xmlNodeSetPtr query_nodes = ss.doXpathQuery(schema, q);
+doXpathQuery(SchemaSet &ss, const string module, const string &q) {
+    xmlNodeSetPtr query_nodes = ss.doXpathQuery(ss.getSchemaFromModule(module), q);
     if (!query_nodes) {
-        cerr << "xpath query :" << q <<  " on schema " << schema  << " returned nothing" << endl;
+        cerr << "xpath query :" << q <<  " on modiule " << module  << " returned nothing" << endl;
     }
     else  {
         SchemaSet::printNodeSet(query_nodes);

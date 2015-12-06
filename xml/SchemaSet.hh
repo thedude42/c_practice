@@ -21,6 +21,7 @@ public:
     static xmlDocPtr fetchXmlDocPtr(std::string filename);
     void printSchemaFilenames();
     void printSchemaDoc(std::string filename);
+    std::string getSchemaFromModule(const std::string modulename);
     xmlNodeSetPtr doXpathQuery(const std::string &schemakey, const std::string &query);
     static void printNodeSet(xmlNodeSetPtr nodeset);
     std::vector<std::string> getPrimaryKey(const std::string &objPath);
