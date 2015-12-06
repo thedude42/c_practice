@@ -14,9 +14,9 @@ SchemaSet::SchemaSet() :  _schemas() {
     xmlInitParser();
 }
 
-SchemaSet::SchemaSet(string filepath) {
+SchemaSet::SchemaSet(const string path) {
     xmlInitParser();
-    if(!addSchemaFile(filepath))
+    if(!addSchemaFile(path))
         cout << "No schemas parsed" << endl;
 }
 
@@ -24,6 +24,7 @@ SchemaSet::SchemaSet(string filepath) {
 SchemaSet::~SchemaSet() {
     for (map<string, xmlDocPtr>::iterator it = _schemas.begin(); it == _schemas.end(); it++) 
         xmlFreeDoc(it->second);
+    xmlCleanupParser();
 }
 
 int
@@ -35,31 +36,35 @@ SchemaSet::addSchemaFile(const string fileName) {
     xmlDocPtr xmldoc;
     directory_iterator dir;
     vector<path> files;
+    int numdocs = 0;
+    // single file case
     if (is_regular_file(filePath)) {
         xmldoc = fetchXmlDocPtr(filePath.string());
         if (xmldoc) {
             _schemas[filePath.string()] = xmldoc;
             addModule(filePath);
-            return 1;
-        }
-        else {
-            return 0;
+            numdocs = 1;
         }
     }
+    // directory case
     else if (is_directory(filePath)) {
-        copy(directory_iterator(filePath), directory_iterator(), back_inserter(files));
+        copy(directory_iterator(filePath), directory_iterator(), 
+             back_inserter(files));
     }
-    int numdocs = 0;
-    for(vector<path>::const_iterator it = files.begin(); it != files.end(); ++it) {
-        if (is_regular_file(*it)) {
-            xmldoc = fetchXmlDocPtr(it->string());
-            if (xmldoc) {
-                _schemas[it->string()] = xmldoc;
-                addModule(*it);
-                numdocs++;
+    // guard for directory case
+    if (files.size() > 0) {
+        for(vector<path>::const_iterator it = files.begin(); 
+                                            it != files.end(); ++it) {
+            if (is_regular_file(*it)) {
+                xmldoc = fetchXmlDocPtr(it->string());
+                if (xmldoc) {
+                    _schemas[it->string()] = xmldoc;
+                    addModule(*it);
+                    numdocs++;
+                }
             }
+            //skip anyhting that isn't a regular file
         }
-        //skip anyhting that isn't a regular file
     }
     return numdocs;
 }
@@ -84,20 +89,27 @@ SchemaSet::getSchemaFromModule(const string modulename) {
 }
 
 xmlDocPtr
-SchemaSet::fetchXmlDocPtr(string xmldoc) {
-    //xmlInitParser();
+SchemaSet::fetchXmlDocPtr(const string xmldoc) {
     xmlDocPtr doc = xmlParseFile(xmldoc.c_str());
     if (doc == NULL) {
-        //cerr << "Error: unable to parse file \"" << xmldoc << "\"" << endl;
         xmlFreeDoc(doc);
+        // we don't throw so callers don't have to catch
         return(NULL);
     }
     return doc;
 }
 
-/* Currently we lose track of an xpathObj every time this function is called.
- * Might be better to just return the xpathObj and let the caller deal with it
- */
+ /* SchemaSet::doXpathQuery
+  * @ string &schema : valid key in _schemas representing a file system path
+  *                    to the schema source file
+  * @ string &query : an xpath query string to perform against @schame
+  *
+  * Accessor method SchemaSet::addModule can be used to convert module
+  * name, e.g. "ltm" or "asm", in to the schema file
+  *
+  * This function leaks one xpathObj per call, so it should probably be a private
+  * method, with a public method that handles the cleanup and returns a vector<string>
+  */
 xmlNodeSetPtr
 SchemaSet::doXpathQuery(const string &schema, const string &query) {
     xmlXPathContextPtr xpathCtx; 
@@ -116,6 +128,15 @@ SchemaSet::doXpathQuery(const string &schema, const string &query) {
     return xpathObj->nodesetval;
 }
 
+/* vector<string>
+ * SchemaSet::getPrimaryKey
+ * @classpath string of form <module name>/<class id>
+ *
+ * returns a vecotr<string> with each class attribute that comproses
+ * the classpath's "primary key"
+ *
+ * Need to refactor with private helper method to build query
+ */
 vector<string>
 SchemaSet::getPrimaryKey(const string &classpath) {
     string queryStr;
@@ -123,7 +144,7 @@ SchemaSet::getPrimaryKey(const string &classpath) {
     string key = classpath.substr(0, split);
     cout << "using key \"" << key << "\" for query" << endl;
     string classId = classpath.substr(split+1, classpath.size() - split);
-    xmlDocPtr doc = _schemas[_modules[key]];
+    xmlDocPtr doc = _schemas[getSchemaFromModule(key)];
     xmlNodeSetPtr queryResults;
     if (!doc) 
         throw runtime_error("bad classpath: no matching schema");

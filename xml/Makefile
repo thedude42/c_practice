@@ -9,15 +9,14 @@ LDFLAGS= -L/usr/local/opt/libxml2/lib
 INCLUDE= -I/usr/local/opt/libxml2/include/libxml2
 #I_XML2=-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk/usr/include/libxml2
 
-all: xpath_query
+all: xpath_query test unit_tests
 
 debug: CPPFLAGS += -g
-debug: xpath_query test
-debug: test
+debug: all
 
 test: SchemaSet.o test.o
 	$(CXX) $(LDFLAGS) $(LDLIBS) -o test SchemaSet.o test.o
-	./test
+#	./test
 
 test.o: test.cpp
 	$(CXX) $(CPPFLAGS) $(INCLUDE)  test.cpp
@@ -38,4 +37,4 @@ SchemaSet.o: SchemaSet.cpp
 	$(CXX) $(CPPFLAGS) $(INCLUDE) SchemaSet.cpp
 
 clean:
-	rm *o xpath_query test
+	rm -f *o xpath_query test
