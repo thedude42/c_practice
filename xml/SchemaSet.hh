@@ -17,9 +17,8 @@ public:
     SchemaSet();
     SchemaSet(std::string dirname);
     ~SchemaSet();
-    int addSchemasDir(std::string dirname);
+    int addSchemaFile(const std::string filename);
     static xmlDocPtr fetchXmlDocPtr(std::string filename);
-    xmlDocPtr setSchemaDocFile(std::string filename);
     void printSchemaFilenames();
     void printSchemaDoc(std::string filename);
     xmlNodeSetPtr doXpathQuery(const std::string &schemakey, const std::string &query);
@@ -29,8 +28,8 @@ public:
 
 private:
     std::map<std::string, xmlDocPtr> _schemas;
-    std::map<std::string, std::vector<std::string> > _schemadirs;
-    const std::vector<std::string> listSchemasDir(std::string);
+    std::map<std::string, std::string> _modules;
+    void addModule(const boost::filesystem::path &pathname);
     int parseSchemas(const std::string); 
 };
 

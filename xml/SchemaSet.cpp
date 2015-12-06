@@ -1,22 +1,22 @@
 #include "SchemaSet.hh"
 #include <iostream>
 
-
 /*
  * Design refactor:
  * - Offload file/directory validation with boost
  * - Boost "assign" for container insertion/init
  */
 
+using namespace boost::filesystem;
 using namespace std;
 
-SchemaSet::SchemaSet() :  _schemadirs() {
+SchemaSet::SchemaSet() :  _schemas() {
     xmlInitParser();
 }
 
-SchemaSet::SchemaSet(string dirname) {
+SchemaSet::SchemaSet(string filepath) {
     xmlInitParser();
-    if(!addSchemasDir(dirname))
+    if(!addSchemaFile(filepath))
         cout << "No schemas parsed" << endl;
 }
 
@@ -26,53 +26,56 @@ SchemaSet::~SchemaSet() {
         xmlFreeDoc(it->second);
 }
 
-//TODO: refactor with boost FS stuff
-int 
-SchemaSet::addSchemasDir(string dir) {
-    if (!(dir.at(dir.size() - 1) == '/'))
-        dir.push_back('/');
-    // we assume listSchemas will bail when this fails
-    _schemadirs[dir] = listSchemasDir(dir);
-    return parseSchemas(dir);
-}
-
-// boost again
-const vector<string>
-SchemaSet::listSchemasDir(string dirstr) {
-    DIR*    dir;
-    dirent* pdir;
-    vector<string> files;
-    dir = opendir(dirstr.c_str()); //using private
-    if (!dir) {
-        cerr << "unable to open directory \"" << dirstr << "\"" << endl; //private
-        exit(-1);
+int
+SchemaSet::addSchemaFile(const string fileName) {
+    path filePath(fileName);
+    if (!exists(filePath)) {
+        return 0;
     }
-    while ((pdir = readdir(dir))) {
-        files.push_back(pdir->d_name);
-    }
-    closedir(dir);
-    return files;
-}
-
-int 
-SchemaSet::parseSchemas(const string dir) {
-    xmlDocPtr next;
-    size_t offset = 0;
-    string key;
-    // foreach refactor
-    for(vector<string>::const_iterator it = _schemadirs[dir].begin(); it != _schemadirs[dir].end(); ++it) {
-        if ((offset = it->find(".xml")) != string::npos) {
-            if ((next = fetchXmlDocPtr(dir+*it))) {
-                key = it->substr(0, offset);
-                //cout << "adding key: " << key << endl;
-                _schemas[key] = next;
-            }
-            else {
-                xmlFreeDoc(next);
-            }
+    xmlDocPtr xmldoc;
+    directory_iterator dir;
+    vector<path> files;
+    if (is_regular_file(filePath)) {
+        xmldoc = fetchXmlDocPtr(filePath.string());
+        if (xmldoc) {
+            _schemas[filePath.string()] = xmldoc;
+            addModule(filePath);
+            return 1;
+        }
+        else {
+            return 0;
         }
     }
-    return _schemas.size();
+    else if (is_directory(filePath)) {
+        copy(directory_iterator(filePath), directory_iterator(), back_inserter(files));
+    }
+    int numdocs = 0;
+    for(vector<path>::const_iterator it = files.begin(); it != files.end(); ++it) {
+        if (is_regular_file(*it)) {
+            xmldoc = fetchXmlDocPtr(it->string());
+            if (xmldoc) {
+                _schemas[it->string()] = xmldoc;
+                addModule(*it);
+                numdocs++;
+            }
+        }
+        //skip anyhting that isn't a regular file
+    }
+    return numdocs;
+}
+
+void
+SchemaSet::addModule(const path &filepath) {
+    string basefile = filepath.filename().string();
+    int endidx = basefile.rfind(".");
+    int basesz = basefile.size();
+    if (endidx == string::npos) {
+        _modules[basefile] = basefile;
+        cout << "DON'T EXPECT THIS" << endl;
+    }
+    else {
+        _modules[basefile.substr(0,basesz-(basesz-endidx))] = filepath.string();
+    }
 }
 
 xmlDocPtr
@@ -97,11 +100,11 @@ SchemaSet::doXpathQuery(const string &schema, const string &query) {
     const xmlChar* xpathQuery = reinterpret_cast<const xmlChar*>(query.c_str());
     xpathCtx = xmlXPathNewContext(_schemas[schema]);
     if(!xpathCtx)
-        throw "unable to create new XPath context";
+        throw runtime_error("unable to create new XPath context");
     xpathObj = xmlXPathEvalExpression(xpathQuery, xpathCtx);
     if (!xpathObj) {
         free(xpathObj);
-        throw "problem evaluating xpath against " + schema;
+        throw runtime_error("problem evaluating xpath against " + schema);
     }
     xmlXPathFreeContext(xpathCtx);
     return xpathObj->nodesetval;
@@ -114,10 +117,10 @@ SchemaSet::getPrimaryKey(const string &classpath) {
     string key = classpath.substr(0, split);
     cout << "using key \"" << key << "\" for query" << endl;
     string classId = classpath.substr(split+1, classpath.size() - split);
-    xmlDocPtr doc = _schemas[key];
+    xmlDocPtr doc = _schemas[_modules[key]];
     xmlNodeSetPtr queryResults;
     if (!doc) 
-        throw "bad classpath: no matching schema";
+        throw runtime_error("bad classpath: no matching schema");
     vector<string> retval;
     string URL(reinterpret_cast<const char*>(doc->URL));
     cout << "selected doc: doc->URL=" << URL <<  endl;
@@ -125,9 +128,9 @@ SchemaSet::getPrimaryKey(const string &classpath) {
             classId + \
             "']/treeIndex[attribute::primaryKey='true']/*/@id";
     cout << "doing query " << queryStr << " against schema keyed on " << key << " for class id=\"" << classId << "\"" << endl;
-    queryResults = doXpathQuery(key, queryStr);
+    queryResults = doXpathQuery(_modules[key], queryStr);
     if (!queryResults)
-        throw "xpathQuery failed in getPrimaryKey";
+        throw runtime_error("xpathQuery failed in getPrimaryKey");
     for(int i = 0; i < queryResults->nodeNr; ++i)
         retval.push_back(reinterpret_cast<char *>(queryResults->nodeTab[i]->children->content));
     return retval;
