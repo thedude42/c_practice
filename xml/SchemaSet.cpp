@@ -166,13 +166,11 @@ SchemaSet::getPrimaryKey(const string &classpath) {
 void
 SchemaSet::printNodeSet(xmlNodeSetPtr nodeset) {
     xmlNodePtr cur;
+    xmlNsPtr ns;
     int size, i;
-    
     size = (nodeset) ? nodeset->nodeNr : 0;
-    
     cout << "Result (" << size << " nodeset):" << endl;
     for(i = 0; i < size; ++i) {
-        xmlNsPtr ns;
         switch(nodeset->nodeTab[i]->type) {
             case XML_NAMESPACE_DECL :
                 ns = (xmlNsPtr)nodeset->nodeTab[i];
@@ -222,6 +220,7 @@ SchemaSet::printNodeSet(xmlNodeSetPtr nodeset) {
 
 void
 SchemaSet::printSchemaFilenames() {
-    for (map<string, xmlDocPtr>::iterator it=_schemas.begin(); it!=_schemas.end(); ++it)
-        cout << it->first << endl;
+    for_each(_schemas.begin(), _schemas.end(), [](pair<string, xmlDocPtr> s){
+        cout << s.first << endl;
+    });
 }
