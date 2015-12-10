@@ -69,6 +69,7 @@ SchemaSet::addSchemaFile(const string fileName) {
     return numdocs;
 }
 
+// refactor to use the ACTUAL module ID in the schema
 void
 SchemaSet::addModule(const path &filepath) {
     string basefile = filepath.filename().string();

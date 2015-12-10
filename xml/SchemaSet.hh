@@ -10,6 +10,8 @@
 
 #include <boost/filesystem.hpp>
 
+// design goal: provide standard interface like <modiule name>/<class>/<attr>
+// for client queries, don't require user to do full schema xpath queries
 class SchemaSet {
 
 public:
@@ -17,7 +19,7 @@ public:
     SchemaSet(const std::string path);
     ~SchemaSet();
     int addSchemaFile(const std::string filename);
-    static xmlDocPtr fetchXmlDocPtr(const std::string filename);
+    static xmlDocPtr fetchXmlDocPtr(const std::string filename); // probably not what consumer actually wants/needs
     void printSchemaFilenames();
     void printSchemaDoc(const std::string filename);//not implemented
     std::string getSchemaFromModule(const std::string modulename);
@@ -27,8 +29,10 @@ public:
     std::vector<std::string> getForeignKey(const std::string &objPath);//not implemented
 
 private:
-    std::map<std::string, xmlDocPtr> _schemas;
-    std::map<std::string, std::string> _modules;
+    // change this to be module => xmldoc, based on the result of xpath /configurationModule/@id
+    std::map<std::string, xmlDocPtr> _schemas; // file path => xml doc
+    // GET RID OF THIS
+    std::map<std::string, std::string> _modules; // module name => file path
     void addModule(const boost::filesystem::path &pathname);
 };
 
