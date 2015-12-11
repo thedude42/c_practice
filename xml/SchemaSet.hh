@@ -26,11 +26,11 @@ public:
     std::vector<std::string> getForeignKey(const std::string &objpath);//not implemented
 
 private:
-    // change this to be module => xmldoc, based on the result of xpath /configurationModule/@id
-    std::map<std::string, xmlDocPtr> _schemas; // file path => xml doc
+    std::map<std::string, xmlDocPtr> _schemas; // Document root node attribute "id" => xml document
     std::string getModuleNameFromXmlDoc(xmlDocPtr doc);
-    xmlNodeSetPtr doXpathQuery(xmlDocPtr doc, const std::string &query);
-    xmlDocPtr fetchXmlDocPtr(const std::string xmldocfilename); // probably not what consumer actually wants/needs
+    std::vector<std::string> getXpathQueryResults(xmlDocPtr doc, const std::string &query);
+    xmlXPathObjectPtr doXpathQuery(xmlDocPtr doc, const std::string &query);
+    xmlDocPtr fetchXmlDocPtr(const std::string xmldocfilename);
     std::vector<std::string> parseNodeSet(xmlNodeSetPtr nodeset);
     bool addXmlDoc(const boost::filesystem::path &pathname);
 };

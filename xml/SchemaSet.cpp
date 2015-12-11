@@ -5,7 +5,6 @@
 
 /*
  * Design refactor:
- * - Offload file/directory validation with boost
  * - Boost "assign" for container insertion/init
  */
 
@@ -22,13 +21,22 @@ SchemaSet::SchemaSet(const string path) {
         cout << "No schemas parsed" << endl;
 }
 
-// think about foreach
 SchemaSet::~SchemaSet() {
-    for (map<string, xmlDocPtr>::iterator it = _schemas.begin(); it == _schemas.end(); it++) 
-        xmlFreeDoc(it->second);
+    for_each(_schemas.begin(), _schemas.end(), [](pair<string, xmlDocPtr> doc) {
+        xmlFreeDoc(doc.second);
+    });
     xmlCleanupParser();
 }
 
+/* SchemaSet::addSchemaFile
+ * @filename : string representing file or directory path
+ *
+ * Mutator method for updating the state of the SchemaSet attribute _schemas.
+ * Input is a valid filename or directory, and in the directory case only the containing files
+ * are parsed as schema documents and any containing directories are ignored.
+ *
+ * Returns the number of documents successfully parsed.
+ */
 int
 SchemaSet::addSchemaFile(const string fileName) {
     path filePath(fileName);
@@ -65,18 +73,15 @@ SchemaSet::addSchemaFile(const string fileName) {
     return numdocs;
 }
 
-string
-SchemaSet::getModuleNameFromXmlDoc(xmlDocPtr doc) {
-    xmlNodeSetPtr queryResult = doXpathQuery(doc, "/configurationModule/@id");
-    xmlNodePtr moduleName = queryResult->nodeTab[0];
-    string retval = reinterpret_cast<char *>(moduleName->children->content);
-    return retval;
-}
-
+/* SchemaSet::addXmlDoc
+ * @filepath : boost::filesystem::path object representing the path to the xml documnt
+ *
+ * Convenience method to add xml doc to _schemas
+ */
 bool
 SchemaSet::addXmlDoc(const path &filepath) {
-    xmlDocPtr xmldoc = fetchXmlDocPtr(filepath.string());
     string moduleName;
+    xmlDocPtr xmldoc = fetchXmlDocPtr(filepath.string());
     if (xmldoc) {
         moduleName = getModuleNameFromXmlDoc(xmldoc);
         _schemas[moduleName] = xmldoc;
@@ -85,6 +90,25 @@ SchemaSet::addXmlDoc(const path &filepath) {
     return false;
 }
 
+/* SchemaSet::getModuleNameFromXmlDoc
+ * @doc : xml document pointer
+ *
+ * Helper method that gets the schema module name from the xml document parameter
+ */
+string
+SchemaSet::getModuleNameFromXmlDoc(xmlDocPtr doc) {
+    vector<string> queryResult = getXpathQueryResults(doc, "/configurationModule/@id");
+    string modulename = queryResult[0];
+    int len = modulename.size();
+    return modulename.substr(4, len);
+}
+
+/* SchemaSet::fetchXmlDocPtr
+ * @xmldocfilename : file name used to create xmlDocPtr
+ *
+ * Convenience function for calling libxml2 function xmlParseFile and return new xmlDocPtr.
+ * Returns NULL on failure of xmlParseFile
+ */
 xmlDocPtr
 SchemaSet::fetchXmlDocPtr(const string xmldocfilename) {
     xmlDocPtr doc = xmlParseFile(xmldocfilename.c_str());
@@ -96,27 +120,48 @@ SchemaSet::fetchXmlDocPtr(const string xmldocfilename) {
     return doc;
 }
 
+/* SchemaSet::querySchemaModule
+ * @modulename : module name string expected to be a key of _schemas
+ * @querystr : query to perform against xmldoc associated with @modulename
+ */
 vector<string>
 SchemaSet::querySchemaModule(string modulename, const std::string &querystr) {
     boost::to_upper(modulename);
     xmlDocPtr doc = _schemas[modulename];
-    xmlNodeSetPtr queryResults = doXpathQuery(doc, querystr);
-    return parseNodeSet(queryResults);
+    return getXpathQueryResults(doc, querystr);
 }
+
+/* SchemaSet::getXpathQueryResults
+ * @doc : document to be queried
+ * @query : the query
+ *
+ * This helper method handles the conversion between xmlXPathObjectPtr and vector<string>,
+ * performing cleanup of the xmlXPathObjectPtr memory after the query is complete
+ */
+vector<string>
+SchemaSet::getXpathQueryResults(xmlDocPtr doc, const string &query) {
+    xmlXPathObjectPtr queryResults = doXpathQuery(doc,query);
+    vector<string> parsedResults = parseNodeSet(queryResults->nodesetval);
+    xmlXPathFreeObject(queryResults);
+    return parsedResults;
+}
+
 
  /* SchemaSet::doXpathQuery
   * @ doc : document to query 
   * @ string &query : an xpath query string to perform against @doc
   *
-  * This function leaks one xpathObj per call, so a refactor should probably return 
-  * the whole xmlXPathObjectPtr, and the caller should copy values in to a vector and then free the xpathObj memory
+  * Implementation method for performing xpath query with libxml2 functions
+  *
+  * Intended to be used by getXpathQueryResults, which cleans up the xmlXPathObjectPtr memory
   */
-xmlNodeSetPtr
+xmlXPathObjectPtr
 SchemaSet::doXpathQuery(xmlDocPtr doc, const string &query) {
     xmlXPathContextPtr xpathCtx; 
     xmlXPathObjectPtr xpathObj;
     const xmlChar* xpathQuery = reinterpret_cast<const xmlChar*>(query.c_str());
     xpathCtx = xmlXPathNewContext(doc);
+    // This condition is really bad and needs investigation
     if(!xpathCtx)
         throw runtime_error("unable to create new XPath context");
     xpathObj = xmlXPathEvalExpression(xpathQuery, xpathCtx);
@@ -125,7 +170,7 @@ SchemaSet::doXpathQuery(xmlDocPtr doc, const string &query) {
         return NULL;
     }
     xmlXPathFreeContext(xpathCtx);
-    return xpathObj->nodesetval;
+    return xpathObj;
 }
 
 /*  SchemaSet::getPrimaryKey
@@ -151,10 +196,22 @@ SchemaSet::getPrimaryKey(const string &classpath) {
 /* SchemaSet::parseNodeSet
  *
  * @nodeset : pointer to libxml2 structure containing results of xpath query
- *            This should probably actually be the owning xmlXPathObject, which we can
- *            free from this method after copying the values
  *
- *
+ * This method enforces our return value convention where nodes are returned like so, witout <> characters:
+ * 
+ * @@ If there is a namespace involved, prefix the string with:
+ *   xmlns:<ns href>::
+ * 
+ * Type XML_NAMESPACE_DECL (with NO namespace)
+ *   xmlns:<ns prefix>=<ns href>::<node name>
+ * Type XML_ELEMENT_NODE
+ *   <node name>
+ * Type XML_TEXT_NODE
+ *   <node content>
+ * Type XML_ATTRIBUTE_NODE
+ *   @<attribute name>=<attribute value>
+ * All other types:
+ *   NodeType:<type>=<node name>
  */
 vector<string>
 SchemaSet::parseNodeSet(xmlNodeSetPtr nodeset) {
@@ -165,78 +222,65 @@ SchemaSet::parseNodeSet(xmlNodeSetPtr nodeset) {
     vector<string> retval;
     string node;
     for(i = 0; i < size; ++i) {
+        node = "";
         switch(nodeset->nodeTab[i]->type) {
+            // TODO: this is a bit goofy and I'm not sure how best to render the namespace information
             case XML_NAMESPACE_DECL :
                 ns = (xmlNsPtr)nodeset->nodeTab[i];
                 cur = (xmlNodePtr)ns->next;
-                // convention: xmlns:<namespace>::<result node>
                 if(cur->ns) {
                     node += "xmlns:";
                     node += reinterpret_cast<const char *>(ns->prefix);
                     node += "=";
                     node += reinterpret_cast<const char *>(ns->href);
                     node += "::";
-                    node += reinterpret_cast<const char *>(cur->ns->href);
-                    node += ":";
-                    node += reinterpret_cast<const char *>(cur->name);
                 }
-                else {
-                    node = "xmlns:";
-                    node += reinterpret_cast<const char *>(ns->prefix);
-                    node += "=";
-                    node += reinterpret_cast<const char *>(ns->href);
-                    node += "::";
-                    node += reinterpret_cast<const char *>(cur->name);
-                }
+                node += "xmlns:";
+                node += reinterpret_cast<const char *>(cur->name);
                 retval.push_back(node);
                 break;
             case XML_ELEMENT_NODE :
                 cur = nodeset->nodeTab[i];        
                 if (cur->ns) { 
-                    node = "xmlns:";
+                    node += "xmlns:";
+                    node += reinterpret_cast<const char *>(cur->ns->prefix);
+                    node += "=";
                     node += reinterpret_cast<const char *>(cur->ns->href);
                     node += "::";
-                    node += reinterpret_cast<const char *>(cur->name);
                 }
-                else {
-                    node = reinterpret_cast<const char *>(cur->name);
-                }
+                node += reinterpret_cast<const char *>(cur->name);
                 retval.push_back(node);
                 break;
             case(XML_TEXT_NODE): 
                 cur = nodeset->nodeTab[i];        
                 if (cur->ns) { 
-                    node = "xmlns:";
+                    node += "xmlns:";
+                    node += reinterpret_cast<const char *>(cur->ns->prefix);
+                    node += "=";
                     node += reinterpret_cast<const char *>(cur->ns->href);
                     node += "::";
-                    node += reinterpret_cast<const char *>(cur->content); 
                 }
-                else {
-                    node = reinterpret_cast<const char *>(cur->content); 
-                }
+                node += reinterpret_cast<const char *>(cur->content); 
                 retval.push_back(node);
                 break;
             case(XML_ATTRIBUTE_NODE):
                 cur = nodeset->nodeTab[i];        
                 if (cur->ns) { 
-                    node = "xmlns:";
+                    node += "xmlns:";
+                    node += reinterpret_cast<const char *>(cur->ns->prefix);
+                    node += "=";
                     node += reinterpret_cast<const char *>(cur->ns->href);
-                    node += "::@";
-                    node += reinterpret_cast<const char *>(cur->name);
-                    node += "=";
-                    node += reinterpret_cast<const char *>(cur->children->content); 
+                    node += "::";
                 }
-                else {
-                    node = "@";
-                    node += reinterpret_cast<const char *>(cur->name);
-                    node += "=";
-                    node += reinterpret_cast<const char *>(cur->children->content); 
-                }
+                node += "@";
+                node += reinterpret_cast<const char *>(cur->name);
+                node += "=";
+                node += reinterpret_cast<const char *>(cur->children->content); 
                 retval.push_back(node);
                 break;
             default: 
                 cur = nodeset->nodeTab[i];    
-                node = "NodeType:";
+                node += "NodeType:";
                 node += reinterpret_cast<const char *>(cur->type);
                 node += " = ";
                 node += reinterpret_cast<const char *>(cur->name);
