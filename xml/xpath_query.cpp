@@ -27,12 +27,13 @@ usage:\n\
 
 void
 doXpathQuery(SchemaSet &ss, const string module, const string &q) {
-    xmlNodeSetPtr query_nodes = ss.doXpathQuery(ss.getSchemaFromModule(module), q);
-    if (!query_nodes) {
+    vector<string> query_results = ss.querySchemaModule(module, q);
+    cout << "Performing xpath query: " << q << " on module '" << module << "'" << endl;
+    if (!query_results.size()) {
         cerr << "xpath query :" << q <<  " on modiule " << module  << " returned nothing" << endl;
     }
     else  {
-        SchemaSet::printNodeSet(query_nodes);
+        for_each(query_results.begin(), query_results.end(), [](string node){ cout << node << endl; });
     }
 }
 

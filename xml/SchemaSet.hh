@@ -19,21 +19,20 @@ public:
     SchemaSet(const std::string path);
     ~SchemaSet();
     int addSchemaFile(const std::string filename);
-    static xmlDocPtr fetchXmlDocPtr(const std::string filename); // probably not what consumer actually wants/needs
     void printSchemaFilenames();
     void printSchemaDoc(const std::string filename);//not implemented
-    std::string getSchemaFromModule(const std::string modulename);
-    xmlNodeSetPtr doXpathQuery(const std::string &schemakey, const std::string &query);
-    static void printNodeSet(xmlNodeSetPtr nodeset);
-    std::vector<std::string> getPrimaryKey(const std::string &objPath);
-    std::vector<std::string> getForeignKey(const std::string &objPath);//not implemented
+    std::vector<std::string> querySchemaModule(std::string modulename, const std::string &querystr);
+    std::vector<std::string> getPrimaryKey(const std::string &objpath);
+    std::vector<std::string> getForeignKey(const std::string &objpath);//not implemented
 
 private:
     // change this to be module => xmldoc, based on the result of xpath /configurationModule/@id
     std::map<std::string, xmlDocPtr> _schemas; // file path => xml doc
-    // GET RID OF THIS
-    std::map<std::string, std::string> _modules; // module name => file path
-    void addModule(const boost::filesystem::path &pathname);
+    std::string getModuleNameFromXmlDoc(xmlDocPtr doc);
+    xmlNodeSetPtr doXpathQuery(xmlDocPtr doc, const std::string &query);
+    xmlDocPtr fetchXmlDocPtr(const std::string filename); // probably not what consumer actually wants/needs
+    std::vector<std::string> parseNodeSet(xmlNodeSetPtr nodeset);
+    bool addXmlDoc(const boost::filesystem::path &pathname);
 };
 
 #endif

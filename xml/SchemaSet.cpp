@@ -1,6 +1,8 @@
 #include "SchemaSet.hh"
 #include <iostream>
 
+#include <boost/algorithm/string.hpp>
+
 /*
  * Design refactor:
  * - Offload file/directory validation with boost
@@ -34,7 +36,6 @@ SchemaSet::addSchemaFile(const string fileName) {
         return 0;
     }
     xmlDocPtr xmldoc;
-    directory_iterator dir;
     vector<path> files;
     int numdocs = 0;
     // single file case
@@ -42,8 +43,8 @@ SchemaSet::addSchemaFile(const string fileName) {
         xmldoc = fetchXmlDocPtr(filePath.string());
         if (xmldoc) {
             _schemas[filePath.string()] = xmldoc;
-            addModule(filePath);
-            numdocs = 1;
+            if (addXmlDoc(filePath))
+                numdocs = 1;
         }
     }
     // directory case
@@ -55,38 +56,33 @@ SchemaSet::addSchemaFile(const string fileName) {
     if (files.size() > 0) {
         for(vector<path>::const_iterator it = files.begin(); 
                                             it != files.end(); ++it) {
-            if (is_regular_file(*it)) {
-                xmldoc = fetchXmlDocPtr(it->string());
-                if (xmldoc) {
-                    _schemas[it->string()] = xmldoc;
-                    addModule(*it);
+            if (is_regular_file(*it)) 
+                if (addXmlDoc(*it))
                     numdocs++;
-                }
-            }
             //skip anyhting that isn't a regular file
         }
     }
     return numdocs;
 }
 
-// refactor to use the ACTUAL module ID in the schema
-void
-SchemaSet::addModule(const path &filepath) {
-    string basefile = filepath.filename().string();
-    int endidx = basefile.rfind(".");
-    int basesz = basefile.size();
-    if (endidx == string::npos) {
-        _modules[basefile] = basefile;
-        cout << "DON'T EXPECT THIS" << endl;
-    }
-    else {
-        _modules[basefile.substr(0,basesz-(basesz-endidx))] = filepath.string();
-    }
+string
+SchemaSet::getModuleNameFromXmlDoc(xmlDocPtr doc) {
+    xmlNodeSetPtr queryResult = doXpathQuery(doc, "/configurationModule/@id");
+    xmlNodePtr moduleName = queryResult->nodeTab[0];
+    string retval = reinterpret_cast<char *>(moduleName->children->content);
+    return retval;
 }
 
-string
-SchemaSet::getSchemaFromModule(const string modulename) {
-    return _modules[modulename];
+bool
+SchemaSet::addXmlDoc(const path &filepath) {
+    xmlDocPtr xmldoc = fetchXmlDocPtr(filepath.string());
+    string moduleName;
+    if (xmldoc) {
+        moduleName = getModuleNameFromXmlDoc(xmldoc);
+        _schemas[moduleName] = xmldoc;
+        return true;
+    }
+    return false;
 }
 
 xmlDocPtr
@@ -98,6 +94,14 @@ SchemaSet::fetchXmlDocPtr(const string xmldoc) {
         return(NULL);
     }
     return doc;
+}
+
+vector<string>
+SchemaSet::querySchemaModule(string modulename, const std::string &querystr) {
+    boost::to_upper(modulename);
+    xmlDocPtr doc = _schemas[modulename];
+    xmlNodeSetPtr queryResults = doXpathQuery(doc, querystr);
+    return parseNodeSet(queryResults);
 }
 
  /* SchemaSet::doXpathQuery
@@ -112,18 +116,17 @@ SchemaSet::fetchXmlDocPtr(const string xmldoc) {
   * method, with a public method that handles the cleanup and returns a vector<string>
   */
 xmlNodeSetPtr
-SchemaSet::doXpathQuery(const string &schema, const string &query) {
+SchemaSet::doXpathQuery(xmlDocPtr doc, const string &query) {
     xmlXPathContextPtr xpathCtx; 
     xmlXPathObjectPtr xpathObj;
     const xmlChar* xpathQuery = reinterpret_cast<const xmlChar*>(query.c_str());
-    xpathCtx = xmlXPathNewContext(_schemas[schema]);
+    xpathCtx = xmlXPathNewContext(doc);
     if(!xpathCtx)
         throw runtime_error("unable to create new XPath context");
-    cout << "performing xpath query: " << query << endl;
     xpathObj = xmlXPathEvalExpression(xpathQuery, xpathCtx);
     if (!xpathObj) {
         free(xpathObj);
-        throw runtime_error("problem evaluating xpath against " + schema);
+        return NULL;
     }
     xmlXPathFreeContext(xpathCtx);
     return xpathObj->nodesetval;
@@ -143,80 +146,101 @@ SchemaSet::getPrimaryKey(const string &classpath) {
     string queryStr;
     int split = classpath.find("/");
     string key = classpath.substr(0, split);
-    cout << "using key \"" << key << "\" for query" << endl;
     string classId = classpath.substr(split+1, classpath.size() - split);
-    xmlDocPtr doc = _schemas[getSchemaFromModule(key)];
-    xmlNodeSetPtr queryResults;
-    if (!doc) 
-        throw runtime_error("bad classpath: no matching schema");
-    vector<string> retval;
-    string URL(reinterpret_cast<const char*>(doc->URL));
-    cout << "selected doc: doc->URL=" << URL <<  endl;
     queryStr = "/configurationModule/class[attribute::id = '" + \
             classId + \
             "']/treeIndex[attribute::primaryKey='true']/*/@id";
-    cout << "doing query " << queryStr << " against schema keyed on " << key << " for class id=\"" << classId << "\"" << endl;
-    queryResults = doXpathQuery(_modules[key], queryStr);
-    if (!queryResults)
-        throw runtime_error("xpathQuery failed in getPrimaryKey");
-    for(int i = 0; i < queryResults->nodeNr; ++i)
-        retval.push_back(reinterpret_cast<char *>(queryResults->nodeTab[i]->children->content));
-    return retval;
+    return querySchemaModule(key, queryStr);
 }
 
-void
-SchemaSet::printNodeSet(xmlNodeSetPtr nodeset) {
+vector<string>
+SchemaSet::parseNodeSet(xmlNodeSetPtr nodeset) {
     xmlNodePtr cur;
     xmlNsPtr ns;
     int size, i;
     size = (nodeset) ? nodeset->nodeNr : 0;
-    cout << "Result (" << size << " nodeset):" << endl;
+    vector<string> retval;
+    string node;
     for(i = 0; i < size; ++i) {
         switch(nodeset->nodeTab[i]->type) {
             case XML_NAMESPACE_DECL :
                 ns = (xmlNsPtr)nodeset->nodeTab[i];
                 cur = (xmlNodePtr)ns->next;
-                if(cur->ns) { 
-                    cout << "= namespace \""<< ns->prefix << "\"=\"" << ns->href  << "\" for node " << \
-                    cur->ns->href <<":"<<  cur->name << endl;
+                // convention: xmlns:<namespace>::<result node>
+                if(cur->ns) {
+                    node += "xmlns:";
+                    node += reinterpret_cast<const char *>(ns->prefix);
+                    node += "=";
+                    node += reinterpret_cast<const char *>(ns->href);
+                    node += "::";
+                    node += reinterpret_cast<const char *>(cur->ns->href);
+                    node += ":";
+                    node += reinterpret_cast<const char *>(cur->name);
                 }
                 else {
-                    cout << "= namespace \"" << ns->prefix << "\"=\"" << ns->href << "\" for node " << \
-                    cur->name <<  endl; 
+                    node = "xmlns:";
+                    node += reinterpret_cast<const char *>(ns->prefix);
+                    node += "=";
+                    node += reinterpret_cast<const char *>(ns->href);
+                    node += "::";
+                    node += reinterpret_cast<const char *>(cur->name);
                 }
+                retval.push_back(node);
                 break;
             case XML_ELEMENT_NODE :
                 cur = nodeset->nodeTab[i];        
                 if (cur->ns) { 
-                    cout << "= element node \"" << cur->ns->href << ":" << cur->name << "\"" << endl; 
+                    node = "xmlns:";
+                    node += reinterpret_cast<const char *>(cur->ns->href);
+                    node += "::";
+                    node += reinterpret_cast<const char *>(cur->name);
                 }
                 else {
-                    cout << "= element node \"" << cur->name << "\"" << endl; 
+                    node = reinterpret_cast<const char *>(cur->name);
                 }
+                retval.push_back(node);
                 break;
             case(XML_TEXT_NODE): 
                 cur = nodeset->nodeTab[i];        
                 if (cur->ns) { 
-                    cout << "= text node \"" << cur->ns->href << ":" << cur->content << "\"" << endl; 
+                    node = "xmlns:";
+                    node += reinterpret_cast<const char *>(cur->ns->href);
+                    node += "::";
+                    node += reinterpret_cast<const char *>(cur->content); 
                 }
                 else {
-                    cout << "= text node \"" << cur->content << "\"" << endl; 
+                    node = reinterpret_cast<const char *>(cur->content); 
                 }
+                retval.push_back(node);
                 break;
             case(XML_ATTRIBUTE_NODE):
                 cur = nodeset->nodeTab[i];        
                 if (cur->ns) { 
-                    cout << "= attr node \"" << cur->ns->href << ":" << cur->content << "\"" << endl; 
+                    node = "xmlns:";
+                    node += reinterpret_cast<const char *>(cur->ns->href);
+                    node += "::@";
+                    node += reinterpret_cast<const char *>(cur->name);
+                    node += "=";
+                    node += reinterpret_cast<const char *>(cur->children->content); 
                 }
                 else {
-                    cout << "= attr node " << cur->name << " => \"" << cur->children->content << "\"," << endl; 
+                    node = "@";
+                    node += reinterpret_cast<const char *>(cur->name);
+                    node += "=";
+                    node += reinterpret_cast<const char *>(cur->children->content); 
                 }
+                retval.push_back(node);
                 break;
             default: 
                 cur = nodeset->nodeTab[i];    
-                cout << "= node \"" << cur->name << "\": type " << cur->type << endl;
+                node = "NodeType:";
+                node += reinterpret_cast<const char *>(cur->type);
+                node += " = ";
+                node += reinterpret_cast<const char *>(cur->name);
+                retval.push_back(node);
         }
     }
+    return retval;
 }
 
 void
