@@ -86,8 +86,8 @@ SchemaSet::addXmlDoc(const path &filepath) {
 }
 
 xmlDocPtr
-SchemaSet::fetchXmlDocPtr(const string xmldoc) {
-    xmlDocPtr doc = xmlParseFile(xmldoc.c_str());
+SchemaSet::fetchXmlDocPtr(const string xmldocfilename) {
+    xmlDocPtr doc = xmlParseFile(xmldocfilename.c_str());
     if (doc == NULL) {
         xmlFreeDoc(doc);
         // we don't throw so callers don't have to catch
@@ -105,15 +105,11 @@ SchemaSet::querySchemaModule(string modulename, const std::string &querystr) {
 }
 
  /* SchemaSet::doXpathQuery
-  * @ string &schema : valid key in _schemas representing a file system path
-  *                    to the schema source file
-  * @ string &query : an xpath query string to perform against @schame
+  * @ doc : document to query 
+  * @ string &query : an xpath query string to perform against @doc
   *
-  * Accessor method SchemaSet::addModule can be used to convert module
-  * name, e.g. "ltm" or "asm", in to the schema file
-  *
-  * This function leaks one xpathObj per call, so it should probably be a private
-  * method, with a public method that handles the cleanup and returns a vector<string>
+  * This function leaks one xpathObj per call, so a refactor should probably return 
+  * the whole xmlXPathObjectPtr, and the caller should copy values in to a vector and then free the xpathObj memory
   */
 xmlNodeSetPtr
 SchemaSet::doXpathQuery(xmlDocPtr doc, const string &query) {
@@ -132,14 +128,13 @@ SchemaSet::doXpathQuery(xmlDocPtr doc, const string &query) {
     return xpathObj->nodesetval;
 }
 
-/* vector<string>
- * SchemaSet::getPrimaryKey
+/*  SchemaSet::getPrimaryKey
  * @classpath string of form <module name>/<class id>
  *
- * returns a vecotr<string> with each class attribute that comproses
+ * Builds the proper xpath query to return a class's private key stuff.
+ * Returns a vecotr<string> with each class attribute that comprises
  * the classpath's "primary key"
  *
- * Need to refactor with private helper method to build query
  */
 vector<string>
 SchemaSet::getPrimaryKey(const string &classpath) {
@@ -153,6 +148,14 @@ SchemaSet::getPrimaryKey(const string &classpath) {
     return querySchemaModule(key, queryStr);
 }
 
+/* SchemaSet::parseNodeSet
+ *
+ * @nodeset : pointer to libxml2 structure containing results of xpath query
+ *            This should probably actually be the owning xmlXPathObject, which we can
+ *            free from this method after copying the values
+ *
+ *
+ */
 vector<string>
 SchemaSet::parseNodeSet(xmlNodeSetPtr nodeset) {
     xmlNodePtr cur;

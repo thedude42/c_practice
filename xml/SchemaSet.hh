@@ -30,7 +30,7 @@ private:
     std::map<std::string, xmlDocPtr> _schemas; // file path => xml doc
     std::string getModuleNameFromXmlDoc(xmlDocPtr doc);
     xmlNodeSetPtr doXpathQuery(xmlDocPtr doc, const std::string &query);
-    xmlDocPtr fetchXmlDocPtr(const std::string filename); // probably not what consumer actually wants/needs
+    xmlDocPtr fetchXmlDocPtr(const std::string xmldocfilename); // probably not what consumer actually wants/needs
     std::vector<std::string> parseNodeSet(xmlNodeSetPtr nodeset);
     bool addXmlDoc(const boost::filesystem::path &pathname);
 };
