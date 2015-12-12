@@ -62,10 +62,11 @@ SchemaSet::addSchemaFile(const string fileName) {
     }
     // guard for directory case
     if (files.size() > 0) {
-        for(vector<path>::const_iterator it = files.begin(); 
-                                            it != files.end(); ++it) {
-            if (is_regular_file(*it)) 
-                if (addXmlDoc(*it))
+        //for (vector<path>::const_iterator it = files.begin(); 
+        //                                    it != files.end(); ++it) {
+        for (auto file : files) {
+            if (is_regular_file(file)) 
+                if (addXmlDoc(file))
                     numdocs++;
             //skip anyhting that isn't a regular file
         }
