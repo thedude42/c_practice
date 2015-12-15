@@ -32,6 +32,7 @@ private:
     std::vector<std::string> getXpathQueryResults(xmlDocPtr doc, const std::string &query);
     xmlXPathObjectPtr doXpathQuery(xmlDocPtr doc, const std::string &query);
     xmlDocPtr fetchXmlDocPtr(const std::string xmldocfilename);
+    std::vector<std::string> splitModuleObjectPath(const std::string &modulepath);
     std::vector<std::string> parseNodeSet(xmlNodeSetPtr nodeset);
     bool addXmlDoc(const boost::filesystem::path &pathname);
 };

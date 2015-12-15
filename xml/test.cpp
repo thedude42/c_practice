@@ -39,14 +39,23 @@ testPrimaryKey(SchemaSet &schemas) {
 
 bool
 testGetType(SchemaSet &schemas) {
-    string type = schemas.getType("ltm/pool/lb_mode");
-    if (type == "enum") {
+    string type1 = schemas.getType("ltm/pool/lb_mode");
+    string type2 = schemas.getType("ltm/pool/monitor_rule");
+    if (type1 == "enum") {
         cout << " [OK] query for type of ltm/pool/lb_mode correctly id'ed as 'enum'" << endl;
-        return true;
+        if (type2 == "string") {
+            cout << " [OK] query for type of ltm/pool/monitor_rule correctly id'ed as 'string'" << endl;
+            return true;
+        }
+        else {
+            cout << "[XX FAIL XX] : did not get correct result for type query ltm/pool/monitor_rule" << endl;
+            cout << "[X RESULT X] : " << type2 << endl;
+            return false;
+        }
     }
     else {
-        cout << "[XX FAIL XX] : did not get correct result for type query ltm/pool/lb_mode";
-        cout << "[X RESULT X] : " << type << endl;
+        cout << "[XX FAIL XX] : did not get correct result for type query ltm/pool/lb_mode" << endl;
+        cout << "[X RESULT X] : " << type2 << endl;
         return false;
     }
 }

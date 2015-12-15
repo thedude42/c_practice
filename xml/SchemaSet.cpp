@@ -63,11 +63,10 @@ SchemaSet::addSchemaFile(const string fileName) {
     }
     // guard for directory case
     if (files.size() > 0) {
-        //for (vector<path>::const_iterator it = files.begin(); 
-        //                                    it != files.end(); ++it) {
-        for (auto file : files) {
-            if (is_regular_file(file)) 
-                if (addXmlDoc(file))
+        for(vector<path>::const_iterator it = files.begin(); 
+                                            it != files.end(); ++it) {
+            if (is_regular_file(*it)) 
+                if (addXmlDoc(*it))
                     numdocs++;
             //skip anyhting that isn't a regular file
         }
@@ -174,8 +173,8 @@ SchemaSet::doXpathQuery(xmlDocPtr doc, const string &query) {
     return xpathObj;
 }
 
-std::vector<string>
-splitModuleObjectPath(const std::string &modulepath) {
+vector<string>
+SchemaSet::splitModuleObjectPath(const std::string &modulepath) {
     vector<string> retval;
     boost::split(retval, modulepath, boost::is_any_of("/"));
     return retval;
@@ -201,6 +200,7 @@ SchemaSet::getPrimaryKey(const string &classpath) {
 string
 SchemaSet::getType(const std::string &modulepath) {
     vector<string> pathparts = splitModuleObjectPath(modulepath);
+    cout << "Path parts returned: 0:" << pathparts[0] << " 1:" << pathparts[1] << " 2:" << pathparts[2]  << endl;
     string querystr = "/configurationModule/class[attribute::id = '" + \
                       pathparts[1] + "']/atom[attribute::id = '" + pathparts[2] + "']/@type";
     vector<string> query_results = querySchemaModule(pathparts[0], querystr);
