@@ -2,6 +2,7 @@
 #include <iostream>
 
 #include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/split.hpp>
 
 /*
  * Design refactor:
@@ -76,7 +77,7 @@ SchemaSet::addSchemaFile(const string fileName) {
 /* SchemaSet::addXmlDoc
  * @filepath : boost::filesystem::path object representing the path to the xml documnt
  *
- * Convenience method to add xml doc to _schemas
+ * Mutator convenience method to add xml doc to _schemas
  */
 bool
 SchemaSet::addXmlDoc(const path &filepath) {
@@ -99,8 +100,7 @@ string
 SchemaSet::getModuleNameFromXmlDoc(xmlDocPtr doc) {
     vector<string> queryResult = getXpathQueryResults(doc, "/configurationModule/@id");
     string modulename = queryResult[0];
-    int len = modulename.size();
-    return modulename.substr(4, len);
+    return modulename.substr(4, modulename.size());
 }
 
 /* SchemaSet::fetchXmlDocPtr
@@ -173,6 +173,13 @@ SchemaSet::doXpathQuery(xmlDocPtr doc, const string &query) {
     return xpathObj;
 }
 
+std::vector<string>
+splitModuleObjectPath(const std::string &modulepath) {
+    vector<string> retval;
+    boost::split(retval, modulepath, boost::is_any_of("/"));
+    return retval;
+}
+
 /*  SchemaSet::getPrimaryKey
  * @classpath string of form <module name>/<class id>
  *
@@ -183,14 +190,27 @@ SchemaSet::doXpathQuery(xmlDocPtr doc, const string &query) {
  */
 vector<string>
 SchemaSet::getPrimaryKey(const string &classpath) {
-    string queryStr;
-    int split = classpath.find("/");
-    string key = classpath.substr(0, split);
-    string classId = classpath.substr(split+1, classpath.size() - split);
-    queryStr = "/configurationModule/class[attribute::id = '" + \
-            classId + \
+    vector<string> pathparts = splitModuleObjectPath(classpath);
+    string querystr = "/configurationModule/class[attribute::id = '" + \
+            pathparts[1] + \
             "']/treeIndex[attribute::primaryKey='true']/*/@id";
-    return querySchemaModule(key, queryStr);
+    return querySchemaModule(pathparts[0], querystr);
+}
+
+string
+SchemaSet::getType(const std::string &modulepath) {
+    vector<string> pathparts = splitModuleObjectPath(modulepath);
+    string querystr = "/configurationModule/class[attribute::id = '" + \
+                      pathparts[1] + "']/atom[attribute::id = '" + pathparts[2] + "']/@type";
+    vector<string> query_results = querySchemaModule(pathparts[0], querystr);
+    if (query_results.size() == 0)
+        return "";
+    string type = query_results[0].substr(6, query_results[0].size());
+    querystr = "/configurationModule/enum[attribute::id= '" + type + "']";
+    query_results = querySchemaModule(pathparts[0], querystr);
+    if (query_results.size() == 0)
+        return type;
+    return query_results[0];
 }
 
 /* SchemaSet::parseNodeSet

@@ -23,6 +23,7 @@ public:
     void printSchemaDoc(const std::string filename);//not implemented
     std::vector<std::string> querySchemaModule(std::string modulename, const std::string &querystr);
     std::vector<std::string> getPrimaryKey(const std::string &objpath);
+    std::string getType(const std::string &modulepath);
     std::vector<std::string> getForeignKey(const std::string &objpath);//not implemented
 
 private:

@@ -7,7 +7,8 @@ using namespace std;
 
 const string SCHEMADIR = "schema/johnny";
 
-bool testXpathQuery(SchemaSet &schemas) {
+bool
+testXpathQuery(SchemaSet &schemas) {
    cout << "[*] performing xpath query: \"/configurationModule/class[attribute::id = 'pool']/treeIndex[attribute::primaryKey='true']/*/@id\"" << endl;
     vector<string> result = schemas.querySchemaModule("LTM", "/configurationModule/class[attribute::id = 'pool']/treeIndex[attribute::primaryKey='true']/*/@id");
     string s("@id=name");
@@ -22,7 +23,8 @@ bool testXpathQuery(SchemaSet &schemas) {
     }
 }
 
-bool testPrimaryKey(SchemaSet &schemas) {
+bool
+testPrimaryKey(SchemaSet &schemas) {
     vector<string> pk = schemas.getPrimaryKey("ltm/pool");
     if (pk[0] == "@id=name" && pk.size() == 1) {
         cout << "  [OK] primary key query for ltm/pool passed" << endl;
@@ -33,10 +35,24 @@ bool testPrimaryKey(SchemaSet &schemas) {
         cout << "[X RESULT X] : " << pk[0] << endl;
         return false;
     }
-
 }
 
-int main() {
+bool
+testGetType(SchemaSet &schemas) {
+    string type = schemas.getType("ltm/pool/lb_mode");
+    if (type == "enum") {
+        cout << " [OK] query for type of ltm/pool/lb_mode correctly id'ed as 'enum'" << endl;
+        return true;
+    }
+    else {
+        cout << "[XX FAIL XX] : did not get correct result for type query ltm/pool/lb_mode";
+        cout << "[X RESULT X] : " << type << endl;
+        return false;
+    }
+}
+
+int 
+main() {
     SchemaSet foo(SCHEMADIR);
     cout << "  [OK] constructed" << endl; 
     cout << "[*] schema names parsed from " << SCHEMADIR << endl;
@@ -45,6 +61,8 @@ int main() {
     if (!testXpathQuery(foo))
         exit(1);
     if (!testPrimaryKey(foo))
+        exit(1);
+    if (!testGetType(foo))
         exit(1);
     return 0;
 }

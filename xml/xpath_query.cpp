@@ -8,7 +8,6 @@
 
 #include "SchemaSet.hh"
 
-#if defined(LIBXML_XPATH_ENABLED) && defined(LIBXML_SAX1_ENABLED)
 
 using namespace std;
 
@@ -92,5 +91,3 @@ main(int argc, char** argv) {
     return 0;
 }
 
-
-#endif
