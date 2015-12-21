@@ -200,7 +200,6 @@ SchemaSet::getPrimaryKey(const string &classpath) {
 string
 SchemaSet::getType(const std::string &modulepath) {
     vector<string> pathparts = splitModuleObjectPath(modulepath);
-    cout << "Path parts returned: 0:" << pathparts[0] << " 1:" << pathparts[1] << " 2:" << pathparts[2]  << endl;
     string querystr = "/configurationModule/class[attribute::id = '" + \
                       pathparts[1] + "']/atom[attribute::id = '" + pathparts[2] + "']/@type";
     vector<string> query_results = querySchemaModule(pathparts[0], querystr);
