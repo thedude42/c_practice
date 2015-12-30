@@ -173,6 +173,11 @@ SchemaSet::doXpathQuery(xmlDocPtr doc, const string &query) {
     return xpathObj;
 }
 
+/* SchemaSet::splitModuleObjectPath
+ * @modulepath : string of the form <part1>/<part2>/<part3>/...
+ *
+ * Returns a vector containing the substrings from @modulepath delimited by the '/' character
+ */
 vector<string>
 SchemaSet::splitModuleObjectPath(const std::string &modulepath) {
     vector<string> retval;
@@ -181,7 +186,7 @@ SchemaSet::splitModuleObjectPath(const std::string &modulepath) {
 }
 
 /*  SchemaSet::getPrimaryKey
- * @classpath string of form <module name>/<class id>
+ * @classpath : string of form <module name>/<class id>
  *
  * Builds the proper xpath query to return a class's private key stuff.
  * Returns a vecotr<string> with each class attribute that comprises
@@ -197,10 +202,14 @@ SchemaSet::getPrimaryKey(const string &classpath) {
     return querySchemaModule(pathparts[0], querystr);
 }
 
+/* SchemaSet::getType
+ * @modulepath : string of the form <module>/<class id attribute>/<class atom id attribute>
+ *
+ * returns a string the denotes the resolved base type of the class's atom member
+ */
 string
 SchemaSet::getType(const std::string &modulepath) {
     vector<string> pathparts = splitModuleObjectPath(modulepath);
-    cout << "Path parts returned: 0:" << pathparts[0] << " 1:" << pathparts[1] << " 2:" << pathparts[2]  << endl;
     string querystr = "/configurationModule/class[attribute::id = '" + \
                       pathparts[1] + "']/atom[attribute::id = '" + pathparts[2] + "']/@type";
     vector<string> query_results = querySchemaModule(pathparts[0], querystr);
