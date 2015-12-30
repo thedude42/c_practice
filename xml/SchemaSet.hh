@@ -10,6 +10,17 @@
 
 #include <boost/filesystem.hpp>
 
+/* Proposed C interface examples which we need to support:
+ *
+ * schema_type("/Pool/monitor_rule") : returns Enum, ForeignKey, ValueType
+ * get_enum_type("/Profile/type") : returns (for example, profile_type_t)
+ * get_enum_values(profile_type_t) : returns table e.g. profile_tcp = 0, profile_udp = 1, profile_http = 2, ...etc
+ * get_foreign_key_elements("/Pool/monitor_rule") : returns a list of paths e.g. /MonitorRule/name, /MonitorRule/type, /MonitorRule/pool_name..etc
+ * get_primary_key("/Pool") : returns a list of paths e.g. /Pool/name
+ * get_reference_paths("/Pool") : returns a list of paths e.g. /Pool/monitor_rule, /Pool/profile​
+ *
+ */
+
 // design goal: provide standard interface like <modiule name>/<class>/<attr>
 // for client queries, don't require user to do full schema xpath queries
 class SchemaSet {
