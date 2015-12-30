@@ -97,7 +97,7 @@ SchemaSet::addXmlDoc(const path &filepath) {
  * Helper method that gets the schema module name from the xml document parameter
  */
 string
-SchemaSet::getModuleNameFromXmlDoc(xmlDocPtr doc) {
+SchemaSet::getModuleNameFromXmlDoc(const xmlDocPtr doc) {
     vector<string> queryResult = getXpathQueryResults(doc, "/configurationModule/@id");
     string modulename = queryResult[0];
     return modulename.substr(4, modulename.size());
@@ -125,9 +125,9 @@ SchemaSet::fetchXmlDocPtr(const string xmldocfilename) {
  * @querystr : query to perform against xmldoc associated with @modulename
  */
 vector<string>
-SchemaSet::querySchemaModule(string modulename, const std::string &querystr) {
+SchemaSet::querySchemaModule(string modulename, const std::string &querystr) const {
     boost::to_upper(modulename);
-    xmlDocPtr doc = _schemas[modulename];
+    xmlDocPtr doc = _schemas.at(modulename);
     return getXpathQueryResults(doc, querystr);
 }
 
@@ -139,7 +139,7 @@ SchemaSet::querySchemaModule(string modulename, const std::string &querystr) {
  * performing cleanup of the xmlXPathObjectPtr memory after the query is complete
  */
 vector<string>
-SchemaSet::getXpathQueryResults(xmlDocPtr doc, const string &query) {
+SchemaSet::getXpathQueryResults(xmlDocPtr doc, const string &query) const {
     xmlXPathObjectPtr queryResults = doXpathQuery(doc,query);
     vector<string> parsedResults = parseNodeSet(queryResults->nodesetval);
     xmlXPathFreeObject(queryResults);
@@ -156,7 +156,7 @@ SchemaSet::getXpathQueryResults(xmlDocPtr doc, const string &query) {
   * Intended to be used by getXpathQueryResults, which cleans up the xmlXPathObjectPtr memory
   */
 xmlXPathObjectPtr
-SchemaSet::doXpathQuery(xmlDocPtr doc, const string &query) {
+SchemaSet::doXpathQuery(xmlDocPtr doc, const string &query) const {
     xmlXPathContextPtr xpathCtx; 
     xmlXPathObjectPtr xpathObj;
     const xmlChar* xpathQuery = reinterpret_cast<const xmlChar*>(query.c_str());
@@ -179,7 +179,7 @@ SchemaSet::doXpathQuery(xmlDocPtr doc, const string &query) {
  * Returns a vector containing the substrings from @modulepath delimited by the '/' character
  */
 vector<string>
-SchemaSet::splitModuleObjectPath(const std::string &modulepath) {
+SchemaSet::splitModuleObjectPath(const std::string &modulepath) const {
     vector<string> retval;
     boost::split(retval, modulepath, boost::is_any_of("/"));
     return retval;
@@ -194,7 +194,7 @@ SchemaSet::splitModuleObjectPath(const std::string &modulepath) {
  *
  */
 vector<string>
-SchemaSet::getPrimaryKey(const string &classpath) {
+SchemaSet::getPrimaryKey(const string &classpath) const {
     vector<string> pathparts = splitModuleObjectPath(classpath);
     string querystr = "/configurationModule/class[attribute::id = '" + \
             pathparts[1] + \
@@ -208,7 +208,7 @@ SchemaSet::getPrimaryKey(const string &classpath) {
  * returns a string the denotes the resolved base type of the class's atom member
  */
 string
-SchemaSet::getType(const std::string &modulepath) {
+SchemaSet::getType(const std::string &modulepath) const {
     vector<string> pathparts = splitModuleObjectPath(modulepath);
     string querystr = "/configurationModule/class[attribute::id = '" + \
                       pathparts[1] + "']/atom[attribute::id = '" + pathparts[2] + "']/@type";
@@ -244,7 +244,7 @@ SchemaSet::getType(const std::string &modulepath) {
  *   NodeType:<type>=<node name>
  */
 vector<string>
-SchemaSet::parseNodeSet(xmlNodeSetPtr nodeset) {
+SchemaSet::parseNodeSet(xmlNodeSetPtr nodeset) const {
     xmlNodePtr cur;
     xmlNsPtr ns;
     int size, i;
@@ -321,7 +321,7 @@ SchemaSet::parseNodeSet(xmlNodeSetPtr nodeset) {
 }
 
 void
-SchemaSet::printSchemaFilenames() {
+SchemaSet::printSchemaFilenames() const {
     for_each(_schemas.begin(), _schemas.end(), [](pair<string, xmlDocPtr> s){
         cout << s.first << endl;
     });

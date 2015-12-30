@@ -30,21 +30,21 @@ public:
     SchemaSet(const std::string path);
     ~SchemaSet();
     int addSchemaFile(const std::string filename);
-    void printSchemaFilenames();
-    void printSchemaDoc(const std::string filename);//not implemented
-    std::vector<std::string> querySchemaModule(std::string modulename, const std::string &querystr);
-    std::vector<std::string> getPrimaryKey(const std::string &objpath);
-    std::string getType(const std::string &modulepath);
-    std::vector<std::string> getForeignKey(const std::string &objpath);//not implemented
+    void printSchemaFilenames() const;
+    void printSchemaDoc(const std::string filename) const;//not implemented
+    std::vector<std::string> querySchemaModule(std::string modulename, const std::string &querystr) const;
+    std::vector<std::string> getPrimaryKey(const std::string &objpath) const;
+    std::string getType(const std::string &modulepath) const;
+    std::vector<std::string> getForeignKey(const std::string &objpath) const;//not implemented
 
 private:
     std::map<std::string, xmlDocPtr> _schemas; // Document root node attribute "id" => xml document
-    std::string getModuleNameFromXmlDoc(xmlDocPtr doc);
-    std::vector<std::string> getXpathQueryResults(xmlDocPtr doc, const std::string &query);
-    xmlXPathObjectPtr doXpathQuery(xmlDocPtr doc, const std::string &query);
+    std::string getModuleNameFromXmlDoc(const xmlDocPtr doc);
+    std::vector<std::string> getXpathQueryResults(xmlDocPtr doc, const std::string &query) const;
+    xmlXPathObjectPtr doXpathQuery(xmlDocPtr doc, const std::string &query) const;
     xmlDocPtr fetchXmlDocPtr(const std::string xmldocfilename);
-    std::vector<std::string> splitModuleObjectPath(const std::string &modulepath);
-    std::vector<std::string> parseNodeSet(xmlNodeSetPtr nodeset);
+    std::vector<std::string> splitModuleObjectPath(const std::string &modulepath) const;
+    std::vector<std::string> parseNodeSet(xmlNodeSetPtr nodeset) const;
     bool addXmlDoc(const boost::filesystem::path &pathname);
 };
 
